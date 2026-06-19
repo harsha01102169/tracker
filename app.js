@@ -46,6 +46,7 @@ let state = {
 
 let currentUser = null;     // Logged in Supabase user
 let supabaseClient = null;  // Supabase client instance
+let isLoadingUserData = false; // Prevent concurrent data loading races
 
 // GATE-CSE & General subjects categories list
 const CATEGORIES = [
@@ -163,8 +164,15 @@ function setupAuthListener() {
         if (session) {
             currentUser = session.user;
             document.getElementById("sidebar-user-email").innerText = currentUser.email;
-            showLoadingState();
-            await loadUserData();
+            
+            // Only trigger data loading if the main dashboard is not already showing
+            const mainVisible = document.getElementById("screen-main").style.display === "flex";
+            if (!mainVisible || event === "SIGNED_IN") {
+                showLoadingState();
+                await loadUserData();
+            } else {
+                logProgress("Dashboard already active. Bypassing redundant reload for event: " + event);
+            }
         } else {
             currentUser = null;
             showScreen("screen-auth");
@@ -190,6 +198,11 @@ function showLoadingState() {
 // --- DATABASE FETCH OPERATIONS ---
 async function loadUserData() {
     if (!currentUser) return;
+    if (isLoadingUserData) {
+        logProgress("loadUserData() already in progress. Ignoring concurrent reload.");
+        return;
+    }
+    isLoadingUserData = true;
     logProgress("Start loadUserData() for user: " + currentUser.email);
     
     try {
@@ -344,6 +357,8 @@ async function loadUserData() {
             console.error("Sign out failed:", signOutErr);
             showScreen("screen-auth");
         }
+    } finally {
+        isLoadingUserData = false;
     }
 }
 
