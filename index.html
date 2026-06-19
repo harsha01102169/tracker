@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith Study Tracker | Multi-User Cloud Sync</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Supabase JS Client Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Chart.js for premium analytics charts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <!-- Background glow elements for glassmorphism -->
+    <div class="glow-bg">
+        <div class="glow-blob blob-purple"></div>
+        <div class="glow-blob blob-blue"></div>
+        <div class="glow-blob blob-pink"></div>
+    </div>
+
+    <!-- ==========================================
+         1. DATABASE CONFIGURATION SCREEN
+         ========================================== -->
+    <div class="auth-wrapper" id="screen-db-setup" style="display: none;">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-database"></i>
+                </div>
+                <h2>Database Configuration</h2>
+                <p>Connect your study tracker to your Supabase cloud database.</p>
+            </div>
+            <form id="form-db-setup" class="quick-form">
+                <div class="form-group">
+                    <label for="db-url">Supabase Project URL</label>
+                    <input type="text" id="db-url" placeholder="https://xxxx.supabase.co" required>
+                </div>
+                <div class="form-group">
+                    <label for="db-key">Supabase API Anon Key</label>
+                    <input type="text" id="db-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." required>
+                </div>
+                <div class="alert-info-box" style="margin: 0.5rem 0;">
+                    <i class="fa-solid fa-circle-info text-cyan"></i>
+                    <span>Find these credentials under Project Settings > API in your Supabase dashboard.</span>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fa-solid fa-link"></i> Connect Database
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         2. AUTHENTICATION (LOGIN / SIGNUP) SCREEN
+         ========================================== -->
+    <div class="auth-wrapper" id="screen-auth" style="display: none;">
+        <div class="auth-card">
+            <div class="auth-header">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-compass-drafting"></i>
+                </div>
+                <h2>Zenith Tracker</h2>
+                <p id="auth-subtitle">Log in to sync your custom study space.</p>
+            </div>
+
+            <!-- Tab Selectors for Auth -->
+            <div class="auth-tabs">
+                <button class="auth-tab active" id="tab-btn-login">Sign In</button>
+                <button class="auth-tab" id="tab-btn-register">Register</button>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <form id="form-login" class="quick-form">
+                <div class="form-group">
+                    <label for="login-email">Email Address</label>
+                    <input type="email" id="login-email" placeholder="you@domain.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <input type="password" id="login-password" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fa-solid fa-right-to-bracket"></i> Sign In
+                </button>
+            </form>
+
+            <!-- REGISTER FORM -->
+            <form id="form-register" class="quick-form" style="display: none;">
+                <div class="form-group">
+                    <label for="register-email">Email Address</label>
+                    <input type="email" id="register-email" placeholder="you@domain.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-password">Password (min 6 characters)</label>
+                    <input type="password" id="register-password" placeholder="••••••••" minlength="6" required>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">
+                    <i class="fa-solid fa-user-plus"></i> Create Account
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <button class="btn-link" id="btn-reset-db-config" type="button">
+                    <i class="fa-solid fa-rotate"></i> Change Database Connection
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         3. MAIN STUDY TRACKER DASHBOARD
+         ========================================== -->
+    <div class="app-container" id="screen-main" style="display: none;">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-compass-drafting"></i>
+                </div>
+                <h1>Zenith</h1>
+            </div>
+            
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="dashboard" id="btn-tab-dashboard">
+                    <i class="fa-solid fa-chart-pie"></i>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-tab="tasks" id="btn-tab-tasks">
+                    <i class="fa-solid fa-list-check"></i>
+                    <span>Tasks & Planning</span>
+                </button>
+                <button class="nav-item" data-tab="analytics" id="btn-tab-analytics">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Analytics</span>
+                </button>
+                <button class="nav-item" data-tab="history" id="btn-tab-history">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <span>History Log</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="streak-badge">
+                    <i class="fa-solid fa-fire text-orange glow-orange animate-pulse"></i>
+                    <div>
+                        <span class="value" id="sidebar-streak-count">0</span>
+                        <span class="label">Day Streak</span>
+                    </div>
+                </div>
+                <div class="user-info-section">
+                    <span class="user-email" id="sidebar-user-email">user@domain.com</span>
+                    <button class="btn btn-secondary btn-sm btn-block" id="btn-logout" title="Sign out of your account">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span>Logout</span>
+                    </button>
+                </div>
+                <div class="sidebar-date" id="sidebar-display-date">
+                    June 19, 2026
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header bar -->
+            <header class="top-bar">
+                <div class="page-title-section">
+                    <h2 id="current-page-title">Dashboard Overview</h2>
+                    <p class="subtitle" id="current-page-subtitle">Track your focus and consistency daily</p>
+                </div>
+                <div class="header-actions">
+                    <!-- Date Rollover Tool (Simulated Debugger / Manual Rollover) -->
+                    <button class="btn btn-secondary btn-sm" id="btn-debug-tomorrow" title="Simulate passing of 1 day">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                        <span>Simulate Next Day</span>
+                    </button>
+                    <button class="btn btn-primary" id="btn-trigger-rollover" title="Complete today's review and move to tomorrow's tasks">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span>Finalize Day</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- TAB 1: DASHBOARD -->
+            <section class="tab-content active" id="tab-dashboard">
+                <!-- Stats Overview Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon icon-purple">
+                            <i class="fa-solid fa-bolt"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-label">Consistency Score</span>
+                            <h3 class="stat-value" id="stat-consistency">0%</h3>
+                            <span class="stat-subtext text-cyan" id="stat-consistency-sub">7-day average completion</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-blue">
+                            <i class="fa-solid fa-hourglass-half"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-label">Focus Duration</span>
+                            <h3 class="stat-value" id="stat-focus-hours">0h</h3>
+                            <span class="stat-subtext" id="stat-focus-sub">Logged today</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-orange">
+                            <i class="fa-solid fa-fire"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-label">Current Streak</span>
+                            <h3 class="stat-value" id="stat-streak">0 days</h3>
+                            <span class="stat-subtext" id="stat-streak-sub">Keep studying daily!</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon icon-green">
+                            <i class="fa-solid fa-clipboard-check"></i>
+                        </div>
+                        <div class="stat-data">
+                            <span class="stat-label">Today's Tasks</span>
+                            <h3 class="stat-value" id="stat-today-completion">0 / 0</h3>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar-fill" id="stat-today-progress-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mid-Section Row -->
+                <div class="dashboard-row">
+                    <!-- Today's Tasks Summary -->
+                    <div class="content-card col-7">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-list-check text-cyan"></i> Today's Study List</h3>
+                            <button class="btn btn-secondary btn-sm" id="btn-quick-task-tab">
+                                <i class="fa-solid fa-plus"></i> Add Task
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="task-list-minimal" id="dashboard-task-list">
+                                <div class="empty-state">
+                                    <i class="fa-solid fa-spinner fa-spin"></i>
+                                    <p>Connecting and downloading your study plan...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Spontaneous Log & Quick Stats -->
+                    <div class="content-card col-5 flex-column">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-circle-plus text-purple"></i> Spontaneous Log</h3>
+                        </div>
+                        <div class="card-body">
+                            <p class="description">Did some study work off-schedule? Log it here instantly as completed!</p>
+                            <form id="form-spontaneous-task" class="quick-form">
+                                <div class="form-group">
+                                    <input type="text" id="spontaneous-task-name" placeholder="What did you study? (e.g. Chemistry NCERT)" required>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-6">
+                                        <select id="spontaneous-task-category" required>
+                                            <option value="" disabled selected>Category</option>
+                                            <option value="Coding">Coding</option>
+                                            <option value="Math">Math</option>
+                                            <option value="Science">Science</option>
+                                            <option value="Humanities">Humanities</option>
+                                            <option value="Languages">Languages</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group col-6">
+                                        <input type="number" id="spontaneous-task-duration" placeholder="Mins (e.g. 45)" min="5" max="480" required>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary btn-block">
+                                    <i class="fa-solid fa-feather"></i> Log & Complete
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom Heatmap Row -->
+                <div class="dashboard-row">
+                    <div class="content-card col-12">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-calendar-days text-pink"></i> Consistency Heatmap</h3>
+                            <div class="heatmap-legend">
+                                <span>Less</span>
+                                <div class="legend-color level-0"></div>
+                                <div class="legend-color level-1"></div>
+                                <div class="legend-color level-2"></div>
+                                <div class="legend-color level-3"></div>
+                                <div class="legend-color level-4"></div>
+                                <span>More</span>
+                            </div>
+                        </div>
+                        <div class="card-body overflow-x">
+                            <div class="heatmap-wrapper">
+                                <div class="heatmap-grid" id="heatmap-grid-container">
+                                    <!-- Rendered dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: TASKS & PLANNING -->
+            <section class="tab-content" id="tab-tasks">
+                <div class="planning-layout">
+                    <!-- Planner Panel -->
+                    <div class="planning-column">
+                        <div class="content-card">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-calendar-plus text-cyan"></i> Add planned task</h3>
+                            </div>
+                            <div class="card-body">
+                                <form id="form-plan-task" class="detail-form">
+                                    <div class="form-group">
+                                        <label for="plan-task-name">Task Name / Topic</label>
+                                        <input type="text" id="plan-task-name" placeholder="e.g. Solve 20 Integration Problems" required>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group col-6">
+                                            <label for="plan-task-category">Category</label>
+                                            <select id="plan-task-category" required>
+                                                <option value="Coding">Coding</option>
+                                                <option value="Math" selected>Math</option>
+                                                <option value="Science">Science</option>
+                                                <option value="Humanities">Humanities</option>
+                                                <option value="Languages">Languages</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group col-6">
+                                            <label for="plan-task-duration">Duration (Minutes)</label>
+                                            <input type="number" id="plan-task-duration" placeholder="e.g. 60" min="5" max="480" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Target Date</label>
+                                        <div class="radio-group">
+                                            <label class="radio-label">
+                                                <input type="radio" name="plan-task-target" value="today" checked>
+                                                <span class="custom-radio"></span>
+                                                Today
+                                            </label>
+                                            <label class="radio-label">
+                                                <input type="radio" name="plan-task-target" value="tomorrow">
+                                                <span class="custom-radio"></span>
+                                                Tomorrow (Nightly prep)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-block">
+                                        <i class="fa-solid fa-plus-circle"></i> Add to Schedule
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Today's Tasks & Tomorrow's Pre-Plan Columns -->
+                    <div class="planning-column">
+                        <div class="content-card h-50 mb-3">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-calendar-day text-blue"></i> Today's Schedule</h3>
+                                <span class="badge badge-info" id="tasks-today-badge">0 tasks</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="task-list-scrollable" id="tasks-today-list">
+                                    <!-- Rendered dynamically -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="content-card h-50">
+                            <div class="card-header">
+                                <h3><i class="fa-solid fa-moon text-purple"></i> Tomorrow's Pre-Plan</h3>
+                                <span class="badge badge-purple" id="tasks-tomorrow-badge">0 tasks</span>
+                            </div>
+                            <div class="card-body">
+                                <p class="column-tip">Tip: Fill this at night. When you click <strong>Finalize Day</strong>, these will automatically move to your active list!</p>
+                                <div class="task-list-scrollable" id="tasks-tomorrow-list">
+                                    <!-- Rendered dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: ANALYTICS -->
+            <section class="tab-content" id="tab-analytics">
+                <div class="analytics-grid">
+                    <div class="content-card col-8">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-chart-area text-cyan"></i> Study Completion & Consistency Trends</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="trendChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="content-card col-4">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-chart-pie text-purple"></i> Subject Breakdown</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="chart-container">
+                                <canvas id="distributionChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="analytics-sub-row">
+                    <div class="content-card col-12">
+                        <div class="card-header">
+                            <h3><i class="fa-solid fa-lightbulb text-yellow"></i> Consistency Insights</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="insights-container" id="analytics-insights">
+                                <!-- Generated Dynamically -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: HISTORY LOG -->
+            <section class="tab-content" id="tab-history">
+                <div class="content-card col-12">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-clock-rotate-left text-blue"></i> Daily Reflection & Task History</h3>
+                        <div class="filters">
+                            <!-- Category Filter -->
+                            <select id="history-filter-category" class="select-sm">
+                                <option value="all">All Subjects</option>
+                                <option value="Coding">Coding</option>
+                                <option value="Math">Math</option>
+                                <option value="Science">Science</option>
+                                <option value="Humanities">Humanities</option>
+                                <option value="Languages">Languages</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="history-timeline" id="history-timeline-container">
+                            <!-- Rendered dynamically -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL: Nightly Review / Rollover Form -->
+    <div class="modal-overlay" id="modal-reflection">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-moon text-purple"></i> Nightly Study Reflection</h2>
+                <button class="btn-close" id="btn-close-reflection"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="reflection-intro">Reflect on today's performance to build your consistency profile and lock in your daily streak!</p>
+                <div class="today-summary-box">
+                    <div class="summary-item">
+                        <span class="label">Completed Tasks</span>
+                        <span class="value text-green" id="modal-summary-tasks">0 / 0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="label">Study Duration</span>
+                        <span class="value text-cyan" id="modal-summary-hours">0 mins</span>
+                    </div>
+                </div>
+                <form id="form-reflection">
+                    <div class="form-group">
+                        <label>How focused were you today?</label>
+                        <div class="rating-stars" id="rating-focus-container">
+                            <span class="star-rating" data-rating="1"><i class="fa-regular fa-star"></i></span>
+                            <span class="star-rating" data-rating="2"><i class="fa-regular fa-star"></i></span>
+                            <span class="star-rating" data-rating="3"><i class="fa-regular fa-star"></i></span>
+                            <span class="star-rating" data-rating="4"><i class="fa-regular fa-star"></i></span>
+                            <span class="star-rating" data-rating="5"><i class="fa-regular fa-star"></i></span>
+                        </div>
+                        <input type="hidden" id="reflection-rating-value" value="0" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>What was your dominant study mood?</label>
+                        <div class="mood-selector" id="mood-selector-container">
+                            <button type="button" class="mood-btn" data-mood="great" title="Great">
+                                <span class="emoji">😆</span>
+                                <span class="mood-label">Energized</span>
+                            </button>
+                            <button type="button" class="mood-btn" data-mood="good" title="Good">
+                                <span class="emoji">🙂</span>
+                                <span class="mood-label">Focused</span>
+                            </button>
+                            <button type="button" class="mood-btn" data-mood="neutral" title="Neutral">
+                                <span class="emoji">😐</span>
+                                <span class="mood-label">Neutral</span>
+                            </button>
+                            <button type="button" class="mood-btn" data-mood="tired" title="Tired">
+                                <span class="emoji">🥱</span>
+                                <span class="mood-label">Tired</span>
+                            </button>
+                            <button type="button" class="mood-btn" data-mood="stressed" title="Stressed">
+                                <span class="emoji">🤯</span>
+                                <span class="mood-label">Stressed</span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="reflection-mood-value" value="" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reflection-notes">Daily Journal / Notes</label>
+                        <textarea id="reflection-notes" rows="3" placeholder="What went well? Any obstacles?"></textarea>
+                    </div>
+
+                    <div class="alert-info-box" id="modal-alert-streak">
+                        <i class="fa-solid fa-fire text-orange"></i>
+                        <span>Completing today with at least 1 task finished will maintain your streak!</span>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block" id="btn-submit-reflection">
+                        <i class="fa-solid fa-moon"></i> Finalize Day & Roll Tasks
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert / Toast Notification -->
+    <div class="toast" id="toast-container">
+        <i class="toast-icon fa-solid fa-circle-check"></i>
+        <span class="toast-message">Task updated!</span>
+    </div>
+
+    <!-- Script -->
+    <script src="app.js"></script>
+</body>
+</html>
