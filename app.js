@@ -23,6 +23,13 @@ function logProgress(msg) {
     console.log("[Zenith Log] " + msg);
 }
 
+function promiseWithTimeout(promise, ms, timeoutError = "Operation timed out") {
+    return Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(timeoutError)), ms))
+    ]);
+}
+
 // --- HARDCODED DB CREDENTIALS ---
 const DB_URL = "https://vkmgswhbxkvrmtutbzzh.supabase.co";
 const DB_KEY = "sb_publishable_lpyJzV08u_ou27lAuW9RNw_WEOIw3kd"; 
@@ -187,10 +194,14 @@ async function loadUserData() {
     
     try {
         logProgress("Step 1: Fetching user stats row...");
-        let { data: statsArray, error: statsError } = await supabaseClient
-            .from('user_stats')
-            .select('*')
-            .eq('user_id', currentUser.id);
+        let { data: statsArray, error: statsError } = await promiseWithTimeout(
+            supabaseClient
+                .from('user_stats')
+                .select('*')
+                .eq('user_id', currentUser.id),
+            6000,
+            "Database stats query timed out (6s)"
+        );
             
         let stats = null;
         if (statsArray && statsArray.length > 0) {
@@ -206,16 +217,20 @@ async function loadUserData() {
         if (!stats && !statsError) {
             logProgress("Stats row missing (empty list). Inserting default stats row...");
             const defaultDate = getSystemDate(0);
-            const { data: newStatsArray, error: createError } = await supabaseClient
-                .from('user_stats')
-                .insert([{
-                    user_id: currentUser.id,
-                    streak: 0,
-                    last_completed_date: null,
-                    current_date: defaultDate,
-                    approved: false // New users are unapproved by default
-                }])
-                .select();
+            const { data: newStatsArray, error: createError } = await promiseWithTimeout(
+                supabaseClient
+                    .from('user_stats')
+                    .insert([{
+                        user_id: currentUser.id,
+                        streak: 0,
+                        last_completed_date: null,
+                        current_date: defaultDate,
+                        approved: false // New users are unapproved by default
+                    }])
+                    .select(),
+                6000,
+                "Database stats insert timed out (6s)"
+            );
                 
             if (createError) {
                 logProgress("Insert stats row failed: " + createError.message);
@@ -254,17 +269,25 @@ async function loadUserData() {
             logProgress("System date is in the future. Resetting offset...");
             state.currentDate = currentActual;
             state.systemOffsetDays = 0;
-            await supabaseClient.from('user_stats').update({
-                current_date: currentActual
-            }).eq('user_id', currentUser.id);
+            await promiseWithTimeout(
+                supabaseClient.from('user_stats').update({
+                    current_date: currentActual
+                }).eq('user_id', currentUser.id),
+                6000,
+                "Database date update timed out (6s)"
+            );
             showToast("Aligned study calendar back to today's actual date.");
         }
         
         logProgress("Step 2: Fetching tasks...");
-        const { data: tasks, error: tasksError } = await supabaseClient
-            .from('tasks')
-            .select('*')
-            .eq('user_id', currentUser.id);
+        const { data: tasks, error: tasksError } = await promiseWithTimeout(
+            supabaseClient
+                .from('tasks')
+                .select('*')
+                .eq('user_id', currentUser.id),
+            6000,
+            "Database tasks query timed out (6s)"
+        );
             
         if (tasksError) {
             logProgress("Tasks fetch error: " + tasksError.message);
@@ -274,10 +297,14 @@ async function loadUserData() {
         state.tasks = tasks || [];
         
         logProgress("Step 3: Fetching reflections...");
-        const { data: reflections, error: refError } = await supabaseClient
-            .from('reflections')
-            .select('*')
-            .eq('user_id', currentUser.id);
+        const { data: reflections, error: refError } = await promiseWithTimeout(
+            supabaseClient
+                .from('reflections')
+                .select('*')
+                .eq('user_id', currentUser.id),
+            6000,
+            "Database reflections query timed out (6s)"
+        );
             
         if (refError) {
             logProgress("Reflections fetch error: " + refError.message);
