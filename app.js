@@ -159,7 +159,7 @@ function initSupabase() {
 // --- AUTHENTICATION LISTENERS ---
 function setupAuthListener() {
     logProgress("Setting up auth state change listener...");
-    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+    supabaseClient.auth.onAuthStateChange((event, session) => {
         logProgress("Auth state changed event: " + event + " (Session: " + (session ? "Active" : "None") + ")");
         if (session) {
             currentUser = session.user;
@@ -169,7 +169,10 @@ function setupAuthListener() {
             const mainVisible = document.getElementById("screen-main").style.display === "flex";
             if (!mainVisible || event === "SIGNED_IN") {
                 showLoadingState();
-                await loadUserData();
+                // Defer async database operations to a separate tick to avoid deadlocking the auth state machine
+                setTimeout(async () => {
+                    await loadUserData();
+                }, 0);
             } else {
                 logProgress("Dashboard already active. Bypassing redundant reload for event: " + event);
             }
