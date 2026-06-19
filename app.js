@@ -12,6 +12,17 @@ window.onunhandledrejection = function(event) {
     alert("Promise Error: " + event.reason);
 };
 
+function logProgress(msg) {
+    const container = document.getElementById("loading-progress");
+    if (container) {
+        const div = document.createElement("div");
+        div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+    console.log("[Zenith Log] " + msg);
+}
+
 // --- HARDCODED DB CREDENTIALS ---
 const DB_URL = "https://vkmgswhbxkvrmtutbzzh.supabase.co";
 const DB_KEY = "sb_publishable_lpyJzV08u_ou27lAuW9RNw_WEOIw3kd"; 
@@ -107,14 +118,17 @@ function showScreen(screenId) {
 
 // --- DATABASE CONNECTION SETUP ---
 function initSupabase() {
+    logProgress("Initializing Supabase Client...");
     let url = DB_URL;
     let key = DB_KEY;
     
     if (!url || url.includes("xxxx") || key === "YOUR_SUPABASE_ANON_KEY" || !key) {
+        logProgress("No credentials in file. Loading from LocalStorage...");
         url = localStorage.getItem("zenith_db_url");
         key = localStorage.getItem("zenith_db_key");
         
         if (!url || !key) {
+            logProgress("No database credentials found. Directing to setup screen.");
             showScreen("screen-db-setup");
             return;
         }
@@ -125,8 +139,10 @@ function initSupabase() {
     
     try {
         supabaseClient = supabase.createClient(url, key);
+        logProgress("Supabase Client created successfully.");
         setupAuthListener();
     } catch (e) {
+        logProgress("CRITICAL: Failed to init client: " + e.message);
         console.error("Failed to initialize Supabase client:", e);
         showScreen("screen-db-setup");
     }
@@ -134,7 +150,9 @@ function initSupabase() {
 
 // --- AUTHENTICATION LISTENERS ---
 function setupAuthListener() {
+    logProgress("Setting up auth state change listener...");
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
+        logProgress("Auth state changed event: " + event + " (Session: " + (session ? "Active" : "None") + ")");
         if (session) {
             currentUser = session.user;
             document.getElementById("sidebar-user-email").innerText = currentUser.email;
@@ -148,7 +166,7 @@ function setupAuthListener() {
 }
 
 function showLoadingState() {
-    // Show spinner in loading screen during load
+    logProgress("Showing loading screen overlay...");
     showScreen("screen-loading");
     const spinner = `
         <div class="empty-state">
@@ -165,16 +183,24 @@ function showLoadingState() {
 // --- DATABASE FETCH OPERATIONS ---
 async function loadUserData() {
     if (!currentUser) return;
+    logProgress("Start loadUserData() for user: " + currentUser.email);
     
     try {
-        // 1. Fetch User Stats
+        logProgress("Step 1: Fetching user stats row...");
         let { data: stats, error: statsError } = await supabaseClient
             .from('user_stats')
             .select('*')
             .eq('user_id', currentUser.id)
             .single();
             
+        if (statsError) {
+            logProgress("Stats query returned error (Code: " + statsError.code + "): " + statsError.message);
+        } else {
+            logProgress("Stats query succeeded. Streak: " + stats.streak + ", Approved: " + stats.approved);
+        }
+            
         if (statsError && statsError.code === 'PGRST116') {
+            logProgress("Stats row missing. Inserting default stats row...");
             const defaultDate = getSystemDate(0);
             const { data: newStats, error: createError } = await supabaseClient
                 .from('user_stats')
@@ -188,19 +214,26 @@ async function loadUserData() {
                 .select()
                 .single();
                 
-            if (createError) throw createError;
+            if (createError) {
+                logProgress("Insert stats row failed: " + createError.message);
+                throw createError;
+            }
             stats = newStats;
+            logProgress("New stats row created. Approved: FALSE");
         } else if (statsError) {
             throw statsError;
         }
         
         // --- ADMIN APPROVAL CHECK ---
         const isApproved = stats.approved || false;
+        logProgress("Verifying approval status: " + isApproved);
         if (!isApproved) {
+            logProgress("User not approved. Redirecting to screen-pending-approval.");
             showScreen("screen-pending-approval");
             return;
         }
         
+        logProgress("Approval granted. Accessing study space...");
         // Show main app screen if approved
         showScreen("screen-main");
         
@@ -209,10 +242,9 @@ async function loadUserData() {
         state.currentDate = stats.current_date || getSystemDate(0);
         
         // --- DATE ALIGNMENT RESET SWITCH ---
-        // If database date is in the future (due to simulation testing),
-        // automatically align it back to actual system today so the user is not stuck.
         const currentActual = getSystemDate(0);
         if (state.currentDate > currentActual) {
+            logProgress("System date is in the future. Resetting offset...");
             state.currentDate = currentActual;
             state.systemOffsetDays = 0;
             await supabaseClient.from('user_stats').update({
@@ -221,22 +253,30 @@ async function loadUserData() {
             showToast("Aligned study calendar back to today's actual date.");
         }
         
-        // 2. Fetch Tasks
+        logProgress("Step 2: Fetching tasks...");
         const { data: tasks, error: tasksError } = await supabaseClient
             .from('tasks')
             .select('*')
             .eq('user_id', currentUser.id);
             
-        if (tasksError) throw tasksError;
+        if (tasksError) {
+            logProgress("Tasks fetch error: " + tasksError.message);
+            throw tasksError;
+        }
+        logProgress("Tasks fetched: " + (tasks ? tasks.length : 0));
         state.tasks = tasks || [];
         
-        // 3. Fetch Reflections
+        logProgress("Step 3: Fetching reflections...");
         const { data: reflections, error: refError } = await supabaseClient
             .from('reflections')
             .select('*')
             .eq('user_id', currentUser.id);
             
-        if (refError) throw refError;
+        if (refError) {
+            logProgress("Reflections fetch error: " + refError.message);
+            throw refError;
+        }
+        logProgress("Reflections fetched: " + (reflections ? reflections.length : 0));
         
         state.reflections = {};
         if (reflections) {
@@ -249,17 +289,22 @@ async function loadUserData() {
             });
         }
         
-        // Check for calendar date changes since last session
+        logProgress("Checking for calendar date rollover...");
         const currentActualOffset = getSystemDate(state.systemOffsetDays);
         if (state.currentDate < currentActualOffset) {
+            logProgress("Date rollover detected. Triggering handleMissedDays...");
             await handleMissedDays(currentActualOffset);
         }
         
+        logProgress("Step 4: Rendering UI...");
         renderAll();
+        logProgress("Data load and rendering complete!");
     } catch (e) {
+        logProgress("CRITICAL EXCEPTION inside loadUserData(): " + e.message);
         console.error("Error loading user data:", e);
         showToast("Cloud sync failed. Check database logs.", "warning");
         try {
+            logProgress("Logging out due to critical error...");
             await supabaseClient.auth.signOut();
         } catch (signOutErr) {
             console.error("Sign out failed:", signOutErr);
