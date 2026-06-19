@@ -187,22 +187,26 @@ async function loadUserData() {
     
     try {
         logProgress("Step 1: Fetching user stats row...");
-        let { data: stats, error: statsError } = await supabaseClient
+        let { data: statsArray, error: statsError } = await supabaseClient
             .from('user_stats')
             .select('*')
-            .eq('user_id', currentUser.id)
-            .single();
+            .eq('user_id', currentUser.id);
+            
+        let stats = null;
+        if (statsArray && statsArray.length > 0) {
+            stats = statsArray[0];
+        }
             
         if (statsError) {
             logProgress("Stats query returned error (Code: " + statsError.code + "): " + statsError.message);
-        } else {
+        } else if (stats) {
             logProgress("Stats query succeeded. Streak: " + stats.streak + ", Approved: " + stats.approved);
         }
             
-        if (statsError && statsError.code === 'PGRST116') {
-            logProgress("Stats row missing. Inserting default stats row...");
+        if (!stats && !statsError) {
+            logProgress("Stats row missing (empty list). Inserting default stats row...");
             const defaultDate = getSystemDate(0);
-            const { data: newStats, error: createError } = await supabaseClient
+            const { data: newStatsArray, error: createError } = await supabaseClient
                 .from('user_stats')
                 .insert([{
                     user_id: currentUser.id,
@@ -211,17 +215,20 @@ async function loadUserData() {
                     current_date: defaultDate,
                     approved: false // New users are unapproved by default
                 }])
-                .select()
-                .single();
+                .select();
                 
             if (createError) {
                 logProgress("Insert stats row failed: " + createError.message);
                 throw createError;
             }
-            stats = newStats;
+            stats = newStatsArray && newStatsArray.length > 0 ? newStatsArray[0] : null;
             logProgress("New stats row created. Approved: FALSE");
         } else if (statsError) {
             throw statsError;
+        }
+        
+        if (!stats) {
+            throw new Error("Failed to retrieve or create user stats row.");
         }
         
         // --- ADMIN APPROVAL CHECK ---
@@ -1315,7 +1322,7 @@ function toggleReflectionModal(show = true) {
 
 // --- EVENT HANDLERS & INITIALIZATION ---
 
-document.addEventListener("DOMContentLoaded", () => {
+function initializeApp() {
     initSupabase();
     
     // Auth Tab Selectors
@@ -1533,4 +1540,10 @@ document.addEventListener("DOMContentLoaded", () => {
     
     window.toggleTask = toggleTask;
     window.deleteTask = deleteTask;
-});
+}
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initializeApp);
+} else {
+    initializeApp();
+}
