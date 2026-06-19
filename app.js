@@ -2,6 +2,16 @@
    ZENITH STUDY TRACKER - MULTI-USER GATE-CSE SPACE (app.js)
    ========================================================================== */
 
+// --- GLOBAL DEBUG LOGGING ---
+window.onerror = function(message, source, lineno, colno, error) {
+    alert("Runtime Error: " + message + "\nLine: " + lineno + "\nSource: " + source);
+    return false;
+};
+
+window.onunhandledrejection = function(event) {
+    alert("Promise Error: " + event.reason);
+};
+
 // --- HARDCODED DB CREDENTIALS ---
 const DB_URL = "https://vkmgswhbxkvrmtutbzzh.supabase.co";
 const DB_KEY = "sb_publishable_lpyJzV08u_ou27lAuW9RNw_WEOIw3kd"; 
