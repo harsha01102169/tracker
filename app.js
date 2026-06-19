@@ -3,7 +3,6 @@
    ========================================================================== */
 
 // --- HARDCODED DB CREDENTIALS ---
-// Once you provide your full API key, we will replace this placeholder.
 const DB_URL = "https://vkmgswhbxkvrmtutbzzh.supabase.co";
 const DB_KEY = "sb_publishable_lpyJzV08u_ou27lAuW9RNw_WEOIw3kd"; 
 
@@ -26,6 +25,7 @@ const CATEGORIES = [
     "Digital Logics",
     "Computer Organization and Architecture",
     "Programming DSA",
+    "Theory of Computation",
     "Compiler Design",
     "Operating Systems",
     "Databases",
@@ -81,7 +81,6 @@ function generateId() {
     return 'task_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
 }
 
-// Convert category string to safe CSS classname (e.g. "Programming DSA" -> "Programming-DSA")
 function getCategoryClass(catStr) {
     return (catStr || "Other").replace(/[^a-zA-Z0-9]/g, "-");
 }
@@ -100,7 +99,6 @@ function initSupabase() {
     let url = DB_URL;
     let key = DB_KEY;
     
-    // If the credentials are not hardcoded or are placeholder values, fallback to localStorage setup
     if (!url || url.includes("xxxx") || key === "YOUR_SUPABASE_ANON_KEY" || !key) {
         url = localStorage.getItem("zenith_db_url");
         key = localStorage.getItem("zenith_db_key");
@@ -111,7 +109,6 @@ function initSupabase() {
         }
         document.getElementById("db-config-reset-wrapper").style.display = "block";
     } else {
-        // Hardcoded, no need to show database setup options
         document.getElementById("db-config-reset-wrapper").style.display = "none";
     }
     
@@ -144,7 +141,7 @@ function showLoadingState() {
     const spinner = `
         <div class="empty-state">
             <i class="fa-solid fa-spinner fa-spin text-cyan"></i>
-            <p>Syncing GATE cloud data...</p>
+            <p>Syncing cloud data...</p>
         </div>
     `;
     document.getElementById("dashboard-task-list").innerHTML = spinner;
@@ -166,7 +163,6 @@ async function loadUserData() {
             .single();
             
         if (statsError && statsError.code === 'PGRST116') {
-            // Row doesn't exist, create initial row
             const defaultDate = getSystemDate(0);
             const { data: newStats, error: createError } = await supabaseClient
                 .from('user_stats')
@@ -188,6 +184,19 @@ async function loadUserData() {
         state.streak = stats.streak || 0;
         state.lastCompletedDate = stats.last_completed_date || "";
         state.currentDate = stats.current_date || getSystemDate(0);
+        
+        // --- DATE ALIGNMENT RESET SWITCH ---
+        // If the database date is in the future (due to simulation testing),
+        // automatically align it back to actual system today so the user is not stuck.
+        const currentActual = getSystemDate(0);
+        if (state.currentDate > currentActual) {
+            state.currentDate = currentActual;
+            state.systemOffsetDays = 0;
+            await supabaseClient.from('user_stats').update({
+                current_date: currentActual
+            }).eq('user_id', currentUser.id);
+            showToast("Aligned study calendar back to today's actual date.");
+        }
         
         // 2. Fetch Tasks
         const { data: tasks, error: tasksError } = await supabaseClient
@@ -218,9 +227,9 @@ async function loadUserData() {
         }
         
         // Check for calendar date changes since last session
-        const currentActual = getSystemDate(state.systemOffsetDays);
-        if (state.currentDate < currentActual) {
-            await handleMissedDays(currentActual);
+        const currentActualOffset = getSystemDate(state.systemOffsetDays);
+        if (state.currentDate < currentActualOffset) {
+            await handleMissedDays(currentActualOffset);
         }
         
         renderAll();
@@ -230,7 +239,6 @@ async function loadUserData() {
     }
 }
 
-// Missed days rollover catcher
 async function handleMissedDays(targetDate) {
     let tempDate = state.currentDate;
     const updates = [];
@@ -569,6 +577,80 @@ function calculateHoursStudied(dateStr) {
     return (totalMinutes / 60).toFixed(1);
 }
 
+// --- AUTOMATIC TIME SLOT DURATION DEDUCTION ---
+function calculateDurationFromTimes(startTimeStr, endTimeStr) {
+    if (!startTimeStr || !endTimeStr) return 0;
+    
+    const [startH, startM] = startTimeStr.split(':').map(Number);
+    const [endH, endM] = endTimeStr.split(':').map(Number);
+    
+    let startMinutes = startH * 60 + startM;
+    let endMinutes = endH * 60 + endM;
+    
+    if (endMinutes < startMinutes) {
+        // Assume session crosses midnight (e.g. 11 PM to 1 AM)
+        endMinutes += 24 * 60;
+    }
+    
+    return endMinutes - startMinutes;
+}
+
+function formatTime12Hour(time24Str) {
+    if (!time24Str) return "";
+    const [h, m] = time24Str.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const h12 = h % 12 || 12;
+    const mStr = String(m).padStart(2, '0');
+    return `${h12}:${mStr} ${ampm}`;
+}
+
+function getTimeSlotRangeString(startTimeStr, endTimeStr) {
+    if (!startTimeStr || !endTimeStr) return "";
+    return `${formatTime12Hour(startTimeStr)} - ${formatTime12Hour(endTimeStr)}`;
+}
+
+function bindTimeDurationCalculators() {
+    const planStart = document.getElementById("plan-task-start");
+    const planEnd = document.getElementById("plan-task-end");
+    const planDisplay = document.getElementById("plan-task-duration-display");
+    const planVal = document.getElementById("plan-task-duration");
+    
+    const spStart = document.getElementById("spontaneous-task-start");
+    const spEnd = document.getElementById("spontaneous-task-end");
+    const spDisplay = document.getElementById("spontaneous-task-duration-display");
+    const spVal = document.getElementById("spontaneous-task-duration");
+    
+    function updateDuration(startInput, endInput, displaySpan, valInput) {
+        if (!startInput.value || !endInput.value) {
+            displaySpan.innerText = "0 mins";
+            valInput.value = "0";
+            return;
+        }
+        const diff = calculateDurationFromTimes(startInput.value, endInput.value);
+        displaySpan.innerText = `${diff} mins`;
+        valInput.value = diff.toString();
+    }
+    
+    if (planStart && planEnd) {
+        // Set default values (e.g. 12:00 PM to 01:00 PM)
+        planStart.value = "12:00";
+        planEnd.value = "13:00";
+        updateDuration(planStart, planEnd, planDisplay, planVal);
+        
+        planStart.addEventListener("input", () => updateDuration(planStart, planEnd, planDisplay, planVal));
+        planEnd.addEventListener("input", () => updateDuration(planStart, planEnd, planDisplay, planVal));
+    }
+    
+    if (spStart && spEnd) {
+        spStart.value = "12:00";
+        spEnd.value = "13:00";
+        updateDuration(spStart, spEnd, spDisplay, spVal);
+        
+        spStart.addEventListener("input", () => updateDuration(spStart, spEnd, spDisplay, spVal));
+        spEnd.addEventListener("input", () => updateDuration(spStart, spEnd, spDisplay, spVal));
+    }
+}
+
 // --- RENDER ENGINE ---
 function renderAll() {
     renderSidebar();
@@ -584,7 +666,6 @@ function renderAll() {
 function renderSidebar() {
     document.getElementById("sidebar-streak-count").innerText = state.streak;
     document.getElementById("sidebar-display-date").innerText = formatDateDisplay(state.currentDate);
-    // Display today's date prominently in the header
     document.getElementById("dashboard-date-display").innerText = formatDateDisplay(state.currentDate);
 }
 
@@ -907,7 +988,7 @@ function renderInsights() {
         categoryTimes[t.category] = (categoryTimes[t.category] || 0) + t.duration;
     });
     
-    let favoriteCategory = "Math";
+    let favoriteCategory = "Other";
     let maxTime = 0;
     Object.keys(categoryTimes).forEach(c => {
         if (categoryTimes[c] > maxTime) {
@@ -1054,7 +1135,6 @@ function renderCharts() {
         }
     });
     
-    // Build category totals, filter out empty elements to make legend look clean
     const categoryTotals = CATEGORIES.map(c => {
         const totalMins = state.tasks
             .filter(t => t.category === c && t.completed)
@@ -1064,7 +1144,6 @@ function renderCharts() {
     
     if (distChartInstance) distChartInstance.destroy();
     
-    // Dynamic colors
     const colors = [
         '#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#ec4899', 
         '#8b5cf6', '#06b6d4', '#14b8a6', '#eab308', '#84cc16', 
@@ -1260,16 +1339,23 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("btn-tab-tasks").click();
     });
     
+    // Bind Time & Duration auto-calculators
+    bindTimeDurationCalculators();
+    
     // Spontaneous task logger
     document.getElementById("form-spontaneous-task").addEventListener("submit", (e) => {
         e.preventDefault();
         const name = document.getElementById("spontaneous-task-name").value;
         const category = document.getElementById("spontaneous-task-category").value;
-        const timeSlot = document.getElementById("spontaneous-task-slot").value;
+        
+        const spStart = document.getElementById("spontaneous-task-start").value;
+        const spEnd = document.getElementById("spontaneous-task-end").value;
         const duration = document.getElementById("spontaneous-task-duration").value;
+        const timeSlot = getTimeSlotRangeString(spStart, spEnd);
         
         addSpontaneousTask(name, category, duration, timeSlot);
         document.getElementById("form-spontaneous-task").reset();
+        bindTimeDurationCalculators(); // Reset times defaults
     });
     
     // Planned task scheduler
@@ -1277,16 +1363,17 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         const name = document.getElementById("plan-task-name").value;
         const category = document.getElementById("plan-task-category").value;
-        const timeSlot = document.getElementById("plan-task-slot").value;
+        
+        const planStart = document.getElementById("plan-task-start").value;
+        const planEnd = document.getElementById("plan-task-end").value;
         const duration = document.getElementById("plan-task-duration").value;
         const target = document.querySelector('input[name="plan-task-target"]:checked').value;
+        const timeSlot = getTimeSlotRangeString(planStart, planEnd);
         
         addTask(name, category, duration, target, timeSlot);
         
-        // Reset name, slot, duration
         document.getElementById("plan-task-name").value = "";
-        document.getElementById("plan-task-slot").value = "";
-        document.getElementById("plan-task-duration").value = "";
+        bindTimeDurationCalculators(); // Reset planned time defaults
     });
     
     // Rollover modal controls

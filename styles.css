@@ -534,6 +534,22 @@ body {
     letter-spacing: 0;
 }
 
+/* Calculated duration badge in forms */
+.duration-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 40px;
+    background: rgba(6, 182, 212, 0.08);
+    border: 1px solid rgba(6, 182, 212, 0.15);
+    border-radius: var(--radius-md);
+    font-size: 0.82rem;
+    color: var(--color-secondary);
+    font-weight: 700;
+    box-shadow: inset 0 0 10px rgba(6, 182, 212, 0.05);
+}
+
 /* ==========================================================================
    TAB CONTENT CONTROLS
    ========================================================================== */
@@ -770,14 +786,15 @@ body {
 .category-Digital-Logics { background-color: #ef4444; }
 .category-Computer-Organization-and-Architecture { background-color: #3b82f6; }
 .category-Programming-DSA { background-color: #10b981; }
-.category-Compiler-Design { background-color: #ec4899; }
+.category-Theory-of-Computation { background-color: #ec4899; }
+.category-Compiler-Design { background-color: #f43f5e; }
 .category-Operating-Systems { background-color: #8b5cf6; }
 .category-Databases { background-color: #06b6d4; }
 .category-Computer-Networks { background-color: #14b8a6; }
 .category-Aptitude { background-color: #eab308; }
 .category-English { background-color: #84cc16; }
 .category-Reasoning { background-color: #a855f7; }
-.category-General-Mathematics { background-color: #f43f5e; }
+.category-General-Mathematics { background-color: #d946ef; }
 .category-PYQs { background-color: #0ea5e9; }
 .category-Other { background-color: #64748b; }
 
@@ -856,6 +873,10 @@ body {
     flex-grow: 1;
 }
 
+.align-items-center {
+    align-items: center;
+}
+
 optgroup {
     background: var(--bg-dark);
     color: var(--color-secondary);
@@ -867,6 +888,7 @@ input[type="text"],
 input[type="number"],
 input[type="email"],
 input[type="password"],
+input[type="time"],
 select,
 textarea {
     background: rgba(0, 0, 0, 0.2);
@@ -892,6 +914,7 @@ input[type="text"]:focus,
 input[type="number"]:focus,
 input[type="email"]:focus,
 input[type="password"]:focus,
+input[type="time"]:focus,
 select:focus,
 textarea:focus {
     border-color: var(--color-primary);

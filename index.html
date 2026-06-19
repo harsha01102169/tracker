@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zenith Study Tracker | GATE-CSE Space</title>
+    <title>Zenith Study Tracker</title>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -62,7 +62,7 @@
                 <div class="brand-icon">
                     <i class="fa-solid fa-compass-drafting"></i>
                 </div>
-                <h2>Zenith CSE Tracker</h2>
+                <h2>Zenith Study Tracker</h2>
                 <p id="auth-subtitle">Log in to sync your custom study space.</p>
             </div>
 
@@ -264,7 +264,7 @@
                             <p class="description">Did some study work off-schedule? Log it here instantly as completed!</p>
                             <form id="form-spontaneous-task" class="quick-form">
                                 <div class="form-group">
-                                    <input type="text" id="spontaneous-task-name" placeholder="What did you study? (e.g. Read CN chapter 2)" required>
+                                    <input type="text" id="spontaneous-task-name" placeholder="What did you study? (e.g. Revise CN Routing)" required>
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group col-12">
@@ -276,6 +276,7 @@
                                                 <option value="Digital Logics">Digital Logics</option>
                                                 <option value="Computer Organization and Architecture">Computer Organization and Architecture (COA)</option>
                                                 <option value="Programming DSA">Programming & DSA</option>
+                                                <option value="Theory of Computation">Theory of Computation (TOC)</option>
                                                 <option value="Compiler Design">Compiler Design</option>
                                                 <option value="Operating Systems">Operating Systems</option>
                                                 <option value="Databases">Databases (DBMS)</option>
@@ -283,7 +284,7 @@
                                             </optgroup>
                                             <!-- General Prep Subjects -->
                                             <optgroup label="General Preparation">
-                                                <option value="Aptitude">Aptitude (Gate)</option>
+                                                <option value="Aptitude">Aptitude</option>
                                                 <option value="English">English</option>
                                                 <option value="Reasoning">Reasoning</option>
                                                 <option value="General Mathematics">General Mathematics</option>
@@ -293,15 +294,21 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="form-row">
-                                    <div class="form-group col-6">
-                                        <input type="text" id="spontaneous-task-slot" placeholder="Time Slot (e.g. 1-2PM)">
+                                <div class="form-row align-items-center">
+                                    <div class="form-group col-4">
+                                        <label for="spontaneous-task-start" style="font-size: 0.72rem; color: var(--text-muted);">Start Time</label>
+                                        <input type="time" id="spontaneous-task-start" required>
                                     </div>
-                                    <div class="form-group col-6">
-                                        <input type="number" id="spontaneous-task-duration" placeholder="Duration (mins)" min="5" max="480" required>
+                                    <div class="form-group col-4">
+                                        <label for="spontaneous-task-end" style="font-size: 0.72rem; color: var(--text-muted);">End Time</label>
+                                        <input type="time" id="spontaneous-task-end" required>
+                                    </div>
+                                    <div class="form-group col-4" style="justify-content: flex-end; display: flex; padding-top: 15px;">
+                                        <span class="duration-badge" id="spontaneous-task-duration-display">60 mins</span>
+                                        <input type="hidden" id="spontaneous-task-duration" value="60">
                                     </div>
                                 </div>
-                                <button type="submit" class="btn btn-primary btn-block">
+                                <button type="submit" class="btn btn-primary btn-block" style="margin-top: 5px;">
                                     <i class="fa-solid fa-feather"></i> Log & Complete
                                 </button>
                             </form>
@@ -361,6 +368,7 @@
                                                     <option value="Digital Logics">Digital Logics</option>
                                                     <option value="Computer Organization and Architecture">Computer Organization and Architecture (COA)</option>
                                                     <option value="Programming DSA" selected>Programming & DSA</option>
+                                                    <option value="Theory of Computation">Theory of Computation (TOC)</option>
                                                     <option value="Compiler Design">Compiler Design</option>
                                                     <option value="Operating Systems">Operating Systems</option>
                                                     <option value="Databases">Databases (DBMS)</option>
@@ -368,7 +376,7 @@
                                                 </optgroup>
                                                 <!-- General Prep Subjects -->
                                                 <optgroup label="General Preparation">
-                                                    <option value="Aptitude">Aptitude (Gate)</option>
+                                                    <option value="Aptitude">Aptitude</option>
                                                     <option value="English">English</option>
                                                     <option value="Reasoning">Reasoning</option>
                                                     <option value="General Mathematics">General Mathematics</option>
@@ -378,14 +386,18 @@
                                             </select>
                                         </div>
                                     </div>
-                                    <div class="form-row">
-                                        <div class="form-group col-6">
-                                            <label for="plan-task-slot">Time Slot (Optional)</label>
-                                            <input type="text" id="plan-task-slot" placeholder="e.g. 2-4 PM">
+                                    <div class="form-row align-items-center">
+                                        <div class="form-group col-4">
+                                            <label for="plan-task-start" style="font-size: 0.72rem; color: var(--text-muted);">Start Time</label>
+                                            <input type="time" id="plan-task-start" required>
                                         </div>
-                                        <div class="form-group col-6">
-                                            <label for="plan-task-duration">Duration (Minutes)</label>
-                                            <input type="number" id="plan-task-duration" placeholder="e.g. 120" min="5" max="480" required>
+                                        <div class="form-group col-4">
+                                            <label for="plan-task-end" style="font-size: 0.72rem; color: var(--text-muted);">End Time</label>
+                                            <input type="time" id="plan-task-end" required>
+                                        </div>
+                                        <div class="form-group col-4" style="justify-content: flex-end; display: flex; padding-top: 15px;">
+                                            <span class="duration-badge" id="plan-task-duration-display">60 mins</span>
+                                            <input type="hidden" id="plan-task-duration" value="60">
                                         </div>
                                     </div>
                                     <div class="form-group">
@@ -493,6 +505,7 @@
                                 <option value="Digital Logics">Digital Logics</option>
                                 <option value="Computer Organization and Architecture">Computer Organization & Architecture</option>
                                 <option value="Programming DSA">Programming & DSA</option>
+                                <option value="Theory of Computation">Theory of Computation (TOC)</option>
                                 <option value="Compiler Design">Compiler Design</option>
                                 <option value="Operating Systems">Operating Systems</option>
                                 <option value="Databases">DBMS</option>
