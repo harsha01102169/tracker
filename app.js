@@ -85,12 +85,12 @@ function getCategoryClass(catStr) {
     return (catStr || "Other").replace(/[^a-zA-Z0-9]/g, "-");
 }
 
-// --- SCREEN SWITCHER ---
 function showScreen(screenId) {
     document.getElementById("screen-db-setup").style.display = "none";
     document.getElementById("screen-auth").style.display = "none";
     document.getElementById("screen-pending-approval").style.display = "none";
     document.getElementById("screen-main").style.display = "none";
+    document.getElementById("screen-loading").style.display = "none";
     
     document.getElementById(screenId).style.display = "flex";
 }
@@ -138,8 +138,8 @@ function setupAuthListener() {
 }
 
 function showLoadingState() {
-    // Show spinner in main screen during load
-    showScreen("screen-main");
+    // Show spinner in loading screen during load
+    showScreen("screen-loading");
     const spinner = `
         <div class="empty-state">
             <i class="fa-solid fa-spinner fa-spin text-cyan"></i>
@@ -249,6 +249,12 @@ async function loadUserData() {
     } catch (e) {
         console.error("Error loading user data:", e);
         showToast("Cloud sync failed. Check database logs.", "warning");
+        try {
+            await supabaseClient.auth.signOut();
+        } catch (signOutErr) {
+            console.error("Sign out failed:", signOutErr);
+            showScreen("screen-auth");
+        }
     }
 }
 
