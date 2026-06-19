@@ -89,6 +89,7 @@ function getCategoryClass(catStr) {
 function showScreen(screenId) {
     document.getElementById("screen-db-setup").style.display = "none";
     document.getElementById("screen-auth").style.display = "none";
+    document.getElementById("screen-pending-approval").style.display = "none";
     document.getElementById("screen-main").style.display = "none";
     
     document.getElementById(screenId).style.display = "flex";
@@ -127,7 +128,6 @@ function setupAuthListener() {
         if (session) {
             currentUser = session.user;
             document.getElementById("sidebar-user-email").innerText = currentUser.email;
-            showScreen("screen-main");
             showLoadingState();
             await loadUserData();
         } else {
@@ -138,6 +138,8 @@ function setupAuthListener() {
 }
 
 function showLoadingState() {
+    // Show spinner in main screen during load
+    showScreen("screen-main");
     const spinner = `
         <div class="empty-state">
             <i class="fa-solid fa-spinner fa-spin text-cyan"></i>
@@ -170,7 +172,8 @@ async function loadUserData() {
                     user_id: currentUser.id,
                     streak: 0,
                     last_completed_date: null,
-                    current_date: defaultDate
+                    current_date: defaultDate,
+                    approved: false // New users are unapproved by default
                 }])
                 .select()
                 .single();
@@ -181,12 +184,22 @@ async function loadUserData() {
             throw statsError;
         }
         
+        // --- ADMIN APPROVAL CHECK ---
+        const isApproved = stats.approved || false;
+        if (!isApproved) {
+            showScreen("screen-pending-approval");
+            return;
+        }
+        
+        // Show main app screen if approved
+        showScreen("screen-main");
+        
         state.streak = stats.streak || 0;
         state.lastCompletedDate = stats.last_completed_date || "";
         state.currentDate = stats.current_date || getSystemDate(0);
         
         // --- DATE ALIGNMENT RESET SWITCH ---
-        // If the database date is in the future (due to simulation testing),
+        // If database date is in the future (due to simulation testing),
         // automatically align it back to actual system today so the user is not stuck.
         const currentActual = getSystemDate(0);
         if (state.currentDate > currentActual) {
@@ -588,7 +601,6 @@ function calculateDurationFromTimes(startTimeStr, endTimeStr) {
     let endMinutes = endH * 60 + endM;
     
     if (endMinutes < startMinutes) {
-        // Assume session crosses midnight (e.g. 11 PM to 1 AM)
         endMinutes += 24 * 60;
     }
     
@@ -609,46 +621,54 @@ function getTimeSlotRangeString(startTimeStr, endTimeStr) {
     return `${formatTime12Hour(startTimeStr)} - ${formatTime12Hour(endTimeStr)}`;
 }
 
+function updateTaskDuration(startInputId, endInputId, displayId, valId) {
+    const startInput = document.getElementById(startInputId);
+    const endInput = document.getElementById(endInputId);
+    const displaySpan = document.getElementById(displayId);
+    const valInput = document.getElementById(valId);
+    
+    if (!startInput || !endInput || !displaySpan || !valInput) return;
+    
+    if (!startInput.value || !endInput.value) {
+        displaySpan.innerText = "0 mins";
+        valInput.value = "0";
+        return;
+    }
+    const diff = calculateDurationFromTimes(startInput.value, endInput.value);
+    displaySpan.innerText = `${diff} mins`;
+    valInput.value = diff.toString();
+}
+
+function resetTimeInputs(type) {
+    const prefix = type === 'plan' ? 'plan-task' : 'spontaneous-task';
+    const startInput = document.getElementById(`${prefix}-start`);
+    const endInput = document.getElementById(`${prefix}-end`);
+    if (startInput && endInput) {
+        startInput.value = "12:00";
+        endInput.value = "13:00";
+        updateTaskDuration(`${prefix}-start`, `${prefix}-end`, `${prefix}-duration-display`, `${prefix}-duration`);
+    }
+}
+
 function bindTimeDurationCalculators() {
     const planStart = document.getElementById("plan-task-start");
     const planEnd = document.getElementById("plan-task-end");
-    const planDisplay = document.getElementById("plan-task-duration-display");
-    const planVal = document.getElementById("plan-task-duration");
-    
     const spStart = document.getElementById("spontaneous-task-start");
     const spEnd = document.getElementById("spontaneous-task-end");
-    const spDisplay = document.getElementById("spontaneous-task-duration-display");
-    const spVal = document.getElementById("spontaneous-task-duration");
-    
-    function updateDuration(startInput, endInput, displaySpan, valInput) {
-        if (!startInput.value || !endInput.value) {
-            displaySpan.innerText = "0 mins";
-            valInput.value = "0";
-            return;
-        }
-        const diff = calculateDurationFromTimes(startInput.value, endInput.value);
-        displaySpan.innerText = `${diff} mins`;
-        valInput.value = diff.toString();
-    }
     
     if (planStart && planEnd) {
-        // Set default values (e.g. 12:00 PM to 01:00 PM)
-        planStart.value = "12:00";
-        planEnd.value = "13:00";
-        updateDuration(planStart, planEnd, planDisplay, planVal);
-        
-        planStart.addEventListener("input", () => updateDuration(planStart, planEnd, planDisplay, planVal));
-        planEnd.addEventListener("input", () => updateDuration(planStart, planEnd, planDisplay, planVal));
+        planStart.addEventListener("input", () => updateTaskDuration("plan-task-start", "plan-task-end", "plan-task-duration-display", "plan-task-duration"));
+        planEnd.addEventListener("input", () => updateTaskDuration("plan-task-start", "plan-task-end", "plan-task-duration-display", "plan-task-duration"));
     }
     
     if (spStart && spEnd) {
-        spStart.value = "12:00";
-        spEnd.value = "13:00";
-        updateDuration(spStart, spEnd, spDisplay, spVal);
-        
-        spStart.addEventListener("input", () => updateDuration(spStart, spEnd, spDisplay, spVal));
-        spEnd.addEventListener("input", () => updateDuration(spStart, spEnd, spDisplay, spVal));
+        spStart.addEventListener("input", () => updateTaskDuration("spontaneous-task-start", "spontaneous-task-end", "spontaneous-task-duration-display", "spontaneous-task-duration"));
+        spEnd.addEventListener("input", () => updateTaskDuration("spontaneous-task-start", "spontaneous-task-end", "spontaneous-task-duration-display", "spontaneous-task-duration"));
     }
+    
+    // Set initial values
+    resetTimeInputs('plan');
+    resetTimeInputs('spontaneous');
 }
 
 // --- RENDER ENGINE ---
@@ -750,7 +770,6 @@ function renderTasksTab() {
     document.getElementById("tasks-today-badge").innerText = `${todayTasks.length} tasks`;
     document.getElementById("tasks-tomorrow-badge").innerText = `${tomorrowTasks.length} tasks`;
     
-    // Today list
     if (todayTasks.length === 0) {
         todayList.innerHTML = `
             <div class="empty-state" style="padding: 1.5rem 1rem;">
@@ -790,7 +809,6 @@ function renderTasksTab() {
         todayList.innerHTML = html;
     }
     
-    // Tomorrow list
     if (tomorrowTasks.length === 0) {
         tomorrowList.innerHTML = `
             <div class="empty-state" style="padding: 1.5rem 1rem;">
@@ -1300,13 +1318,19 @@ document.addEventListener("DOMContentLoaded", () => {
         if (error) {
             showToast("Registration failed: " + error.message, "warning");
         } else {
-            showToast("Account created! You can now log in.");
+            showToast("Account created! Waiting for administrator approval.");
             document.getElementById("tab-btn-login").click();
         }
     });
     
     // Logout Action
     document.getElementById("btn-logout").addEventListener("click", async () => {
+        await supabaseClient.auth.signOut();
+        showToast("Logged out successfully.");
+    });
+    
+    // Logout Action on Pending Approval Screen
+    document.getElementById("btn-pending-logout").addEventListener("click", async () => {
         await supabaseClient.auth.signOut();
         showToast("Logged out successfully.");
     });
@@ -1355,7 +1379,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         addSpontaneousTask(name, category, duration, timeSlot);
         document.getElementById("form-spontaneous-task").reset();
-        bindTimeDurationCalculators(); // Reset times defaults
+        resetTimeInputs('spontaneous');
     });
     
     // Planned task scheduler
@@ -1373,7 +1397,7 @@ document.addEventListener("DOMContentLoaded", () => {
         addTask(name, category, duration, target, timeSlot);
         
         document.getElementById("plan-task-name").value = "";
-        bindTimeDurationCalculators(); // Reset planned time defaults
+        resetTimeInputs('plan');
     });
     
     // Rollover modal controls

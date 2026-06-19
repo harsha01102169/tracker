@@ -23,6 +23,7 @@ CREATE TABLE public.tasks (
     name TEXT NOT NULL,
     category TEXT NOT NULL,
     duration INTEGER NOT NULL,
+    time_slot TEXT,
     date TEXT NOT NULL, -- YYYY-MM-DD
     completed BOOLEAN DEFAULT false,
     completed_at TIMESTAMPTZ,
@@ -48,6 +49,7 @@ CREATE TABLE public.user_stats (
     streak INTEGER DEFAULT 0,
     last_completed_date TEXT,
     current_date TEXT,
+    approved BOOLEAN DEFAULT false,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 

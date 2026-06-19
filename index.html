@@ -111,7 +111,29 @@
     </div>
 
     <!-- ==========================================
-         3. MAIN STUDY TRACKER DASHBOARD
+         3. PENDING APPROVAL SCREEN
+         ========================================== -->
+    <div class="auth-wrapper" id="screen-pending-approval" style="display: none;">
+        <div class="auth-card text-center" style="text-align: center;">
+            <div class="auth-header">
+                <div class="brand-icon" style="background: linear-gradient(135deg, var(--color-warning) 0%, var(--color-orange) 100%); margin-bottom: 12px;">
+                    <i class="fa-solid fa-user-shield"></i>
+                </div>
+                <h2 style="font-family: var(--font-heading); font-size: 1.4rem; font-weight: 700;">Account Pending Approval</h2>
+                <p style="margin-top: 4px;">Your registration was successful, but your account is waiting for administrator approval.</p>
+            </div>
+            <div class="alert-info-box" style="margin: 1.5rem 0; text-align: left;">
+                <i class="fa-solid fa-circle-info text-cyan"></i>
+                <span>Please ask the administrator to approve your account. Once approved, refresh this page to access your study space.</span>
+            </div>
+            <button class="btn btn-secondary btn-block" id="btn-pending-logout">
+                <i class="fa-solid fa-right-from-bracket"></i> Logout
+            </button>
+        </div>
+    </div>
+
+    <!-- ==========================================
+         4. MAIN STUDY TRACKER DASHBOARD
          ========================================== -->
     <div class="app-container" id="screen-main" style="display: none;">
         <!-- Sidebar Navigation -->
