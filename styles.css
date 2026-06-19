@@ -316,6 +316,11 @@ body {
     padding-bottom: 1.5rem;
 }
 
+.page-title-section {
+    display: flex;
+    flex-direction: column;
+}
+
 .page-title-section h2 {
     font-family: var(--font-heading);
     font-size: 1.8rem;
@@ -327,6 +332,27 @@ body {
     font-size: 0.9rem;
     color: var(--text-muted);
     margin-top: 2px;
+}
+
+/* Prominent Date display badge */
+.date-header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: 20px;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-top: 6px;
+    align-self: flex-start;
+    box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.02);
+}
+
+.date-header-badge i {
+    color: var(--color-secondary);
 }
 
 .header-actions {
@@ -497,6 +523,15 @@ body {
     background: rgba(16, 185, 129, 0.12);
     border: 1px solid rgba(16, 185, 129, 0.2);
     color: var(--color-success);
+}
+
+.badge-time {
+    background: rgba(236, 72, 153, 0.08);
+    border: 1px solid rgba(236, 72, 153, 0.15);
+    color: var(--color-pink);
+    text-transform: none;
+    font-size: 0.7rem;
+    letter-spacing: 0;
 }
 
 /* ==========================================================================
@@ -716,10 +751,11 @@ body {
 .task-meta {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     font-size: 0.72rem;
     color: var(--text-muted);
-    margin-top: 2px;
+    margin-top: 4px;
+    flex-wrap: wrap;
 }
 
 .category-dot {
@@ -729,12 +765,21 @@ body {
     border-radius: 50%;
 }
 
-.category-Coding { background-color: var(--color-primary); }
-.category-Math { background-color: var(--color-secondary); }
-.category-Science { background-color: var(--color-pink); }
-.category-Humanities { background-color: var(--color-warning); }
-.category-Languages { background-color: var(--color-success); }
-.category-Other { background-color: var(--text-muted); }
+/* Subject Colors Mapping */
+.category-Engineering-Mathematics { background-color: #f59e0b; }
+.category-Digital-Logics { background-color: #ef4444; }
+.category-Computer-Organization-and-Architecture { background-color: #3b82f6; }
+.category-Programming-DSA { background-color: #10b981; }
+.category-Compiler-Design { background-color: #ec4899; }
+.category-Operating-Systems { background-color: #8b5cf6; }
+.category-Databases { background-color: #06b6d4; }
+.category-Computer-Networks { background-color: #14b8a6; }
+.category-Aptitude { background-color: #eab308; }
+.category-English { background-color: #84cc16; }
+.category-Reasoning { background-color: #a855f7; }
+.category-General-Mathematics { background-color: #f43f5e; }
+.category-PYQs { background-color: #0ea5e9; }
+.category-Other { background-color: #64748b; }
 
 .task-actions {
     display: flex;
@@ -809,6 +854,13 @@ body {
 
 .form-row .form-group {
     flex-grow: 1;
+}
+
+optgroup {
+    background: var(--bg-dark);
+    color: var(--color-secondary);
+    font-weight: 600;
+    font-family: var(--font-heading);
 }
 
 input[type="text"],

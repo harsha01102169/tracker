@@ -1,6 +1,11 @@
 /* ==========================================================================
-   ZENITH STUDY TRACKER - MULTI-USER CLOUD ENGINE (app.js)
+   ZENITH STUDY TRACKER - MULTI-USER GATE-CSE SPACE (app.js)
    ========================================================================== */
+
+// --- HARDCODED DB CREDENTIALS ---
+// Once you provide your full API key, we will replace this placeholder.
+const DB_URL = "https://vkmgswhbxkvrmtutbzzh.supabase.co";
+const DB_KEY = "sb_publishable_lpyJzV08u_ou27lAuW9RNw_WEOIw3kd"; 
 
 // --- STATE MANAGEMENT ---
 let state = {
@@ -13,9 +18,25 @@ let state = {
 };
 
 let currentUser = null;     // Logged in Supabase user
-let supabaseClient = null;  // Dynamic Supabase client instance
+let supabaseClient = null;  // Supabase client instance
 
-const CATEGORIES = ["Coding", "Math", "Science", "Humanities", "Languages", "Other"];
+// GATE-CSE & General subjects categories list
+const CATEGORIES = [
+    "Engineering Mathematics",
+    "Digital Logics",
+    "Computer Organization and Architecture",
+    "Programming DSA",
+    "Compiler Design",
+    "Operating Systems",
+    "Databases",
+    "Computer Networks",
+    "Aptitude",
+    "English",
+    "Reasoning",
+    "General Mathematics",
+    "PYQs",
+    "Other"
+];
 
 // Chart instances
 let trendChartInstance = null;
@@ -60,6 +81,11 @@ function generateId() {
     return 'task_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
 }
 
+// Convert category string to safe CSS classname (e.g. "Programming DSA" -> "Programming-DSA")
+function getCategoryClass(catStr) {
+    return (catStr || "Other").replace(/[^a-zA-Z0-9]/g, "-");
+}
+
 // --- SCREEN SWITCHER ---
 function showScreen(screenId) {
     document.getElementById("screen-db-setup").style.display = "none";
@@ -71,20 +97,29 @@ function showScreen(screenId) {
 
 // --- DATABASE CONNECTION SETUP ---
 function initSupabase() {
-    const url = localStorage.getItem("zenith_db_url");
-    const key = localStorage.getItem("zenith_db_key");
+    let url = DB_URL;
+    let key = DB_KEY;
     
-    if (url && key) {
-        try {
-            supabaseClient = supabase.createClient(url, key);
-            setupAuthListener();
-        } catch (e) {
-            console.error("Failed to initialize Supabase client:", e);
-            localStorage.removeItem("zenith_db_url");
-            localStorage.removeItem("zenith_db_key");
+    // If the credentials are not hardcoded or are placeholder values, fallback to localStorage setup
+    if (!url || url.includes("xxxx") || key === "YOUR_SUPABASE_ANON_KEY" || !key) {
+        url = localStorage.getItem("zenith_db_url");
+        key = localStorage.getItem("zenith_db_key");
+        
+        if (!url || !key) {
             showScreen("screen-db-setup");
+            return;
         }
+        document.getElementById("db-config-reset-wrapper").style.display = "block";
     } else {
+        // Hardcoded, no need to show database setup options
+        document.getElementById("db-config-reset-wrapper").style.display = "none";
+    }
+    
+    try {
+        supabaseClient = supabase.createClient(url, key);
+        setupAuthListener();
+    } catch (e) {
+        console.error("Failed to initialize Supabase client:", e);
         showScreen("screen-db-setup");
     }
 }
@@ -109,7 +144,7 @@ function showLoadingState() {
     const spinner = `
         <div class="empty-state">
             <i class="fa-solid fa-spinner fa-spin text-cyan"></i>
-            <p>Syncing cloud data...</p>
+            <p>Syncing GATE cloud data...</p>
         </div>
     `;
     document.getElementById("dashboard-task-list").innerHTML = spinner;
@@ -195,7 +230,7 @@ async function loadUserData() {
     }
 }
 
-// Handles missed days and rolls forward incomplete tasks
+// Missed days rollover catcher
 async function handleMissedDays(targetDate) {
     let tempDate = state.currentDate;
     const updates = [];
@@ -209,7 +244,6 @@ async function handleMissedDays(targetDate) {
             state.streak = 0;
         }
         
-        // Create auto-reflection
         if (!state.reflections[tempDate]) {
             state.reflections[tempDate] = {
                 focusRating: 0,
@@ -225,7 +259,6 @@ async function handleMissedDays(targetDate) {
             });
         }
         
-        // Roll active tasks forward
         state.tasks.forEach(t => {
             if (t.date === tempDate && !t.completed) {
                 t.date = addDays(tempDate, 1);
@@ -238,7 +271,6 @@ async function handleMissedDays(targetDate) {
     
     state.currentDate = targetDate;
     
-    // Batch save back to Supabase
     try {
         if (reflectionInserts.length > 0) {
             await supabaseClient.from('reflections').insert(reflectionInserts);
@@ -255,8 +287,8 @@ async function handleMissedDays(targetDate) {
 
 // --- CLOUD CRUD OPERATIONS ---
 
-// Add a scheduled task
-async function addTask(name, category, duration, target) {
+// Add planned task
+async function addTask(name, category, duration, target, timeSlot) {
     const targetDate = target === "tomorrow" ? addDays(state.currentDate, 1) : state.currentDate;
     const id = generateId();
     
@@ -266,29 +298,28 @@ async function addTask(name, category, duration, target) {
         name: name,
         category: category,
         duration: parseInt(duration),
+        time_slot: timeSlot || null,
         date: targetDate,
         completed: false,
         completed_at: null,
         is_spontaneous: false
     };
     
-    // Optimistic local state update
     state.tasks.push(newTask);
     renderAll();
     
-    // Remote insert
     const { error } = await supabaseClient.from('tasks').insert([newTask]);
     if (error) {
         showToast("Failed to sync task to database.", "warning");
         console.error(error);
-        await loadUserData(); // Rollback local state
+        await loadUserData();
     } else {
-        showToast("Task added and synced!");
+        showToast("Task added to your schedule!");
     }
 }
 
 // Add spontaneous task
-async function addSpontaneousTask(name, category, duration) {
+async function addSpontaneousTask(name, category, duration, timeSlot) {
     const id = generateId();
     const nowStr = new Date().toISOString();
     
@@ -298,6 +329,7 @@ async function addSpontaneousTask(name, category, duration) {
         name: name,
         category: category,
         duration: parseInt(duration),
+        time_slot: timeSlot || null,
         date: state.currentDate,
         completed: true,
         completed_at: nowStr,
@@ -377,7 +409,7 @@ async function toggleTask(id) {
     }
 }
 
-// Finalize Day Reflection & Rollover
+// Finalize Day Reflection
 async function finalizeDay(rating, mood, notes) {
     const today = state.currentDate;
     const tomorrow = addDays(today, 1);
@@ -386,7 +418,6 @@ async function finalizeDay(rating, mood, notes) {
     const completedCount = todayTasks.filter(t => t.completed).length;
     const didStudy = completedCount > 0;
     
-    // Streak calculations
     if (didStudy) {
         const yesterday = addDays(today, -1);
         if (state.lastCompletedDate === yesterday || state.streak === 0 || state.lastCompletedDate === today) {
@@ -401,14 +432,12 @@ async function finalizeDay(rating, mood, notes) {
         }
     }
     
-    // Save locally
     state.reflections[today] = {
         focusRating: parseInt(rating),
         mood: mood,
         notes: notes
     };
     
-    // Update active tasks date
     state.tasks.forEach(t => {
         if (t.date === today && !t.completed) {
             t.date = tomorrow;
@@ -419,7 +448,6 @@ async function finalizeDay(rating, mood, notes) {
     renderAll();
     
     try {
-        // 1. Insert reflection
         const rInsert = supabaseClient.from('reflections').insert([{
             user_id: currentUser.id,
             date: today,
@@ -428,12 +456,10 @@ async function finalizeDay(rating, mood, notes) {
             notes: notes
         }]);
         
-        // 2. Roll incomplete tasks in db
         const tUpdates = supabaseClient.from('tasks').update({
             date: tomorrow
         }).eq('user_id', currentUser.id).eq('date', today).eq('completed', false);
         
-        // 3. Update User stats
         const sUpdate = supabaseClient.from('user_stats').update({
             streak: state.streak,
             last_completed_date: state.lastCompletedDate,
@@ -453,7 +479,7 @@ async function finalizeDay(rating, mood, notes) {
     }
 }
 
-// Simulate passing of 1 day (Debugger Tool)
+// Simulate 1 day leap
 async function debugSimulateNextDay() {
     state.systemOffsetDays += 1;
     const nextActual = getSystemDate(state.systemOffsetDays);
@@ -473,7 +499,6 @@ async function debugSimulateNextDay() {
             notes: "Simulated rollover: Day closed without manual reflection."
         };
         
-        // Save placeholder reflection to Supabase
         await supabaseClient.from('reflections').insert([{
             user_id: currentUser.id,
             date: today,
@@ -483,7 +508,6 @@ async function debugSimulateNextDay() {
         }]);
     }
     
-    // Roll tasks in state
     state.tasks.forEach(t => {
         if (t.date === today && !t.completed) {
             t.date = nextActual;
@@ -494,12 +518,10 @@ async function debugSimulateNextDay() {
     renderAll();
     
     try {
-        // Roll tasks in database
         const tUpdates = supabaseClient.from('tasks').update({
             date: nextActual
         }).eq('user_id', currentUser.id).eq('date', today).eq('completed', false);
         
-        // Update stats in db
         const sUpdate = supabaseClient.from('user_stats').update({
             streak: state.streak,
             current_date: nextActual
@@ -514,7 +536,7 @@ async function debugSimulateNextDay() {
     }
 }
 
-// --- ANALYTICS CALCULATIONS ---
+// --- STATS CALCULATIONS ---
 function calculateConsistencyScore(days = 7) {
     const today = state.currentDate;
     let totalScheduled = 0;
@@ -547,7 +569,7 @@ function calculateHoursStudied(dateStr) {
     return (totalMinutes / 60).toFixed(1);
 }
 
-// --- RENDER FUNCTIONS ---
+// --- RENDER ENGINE ---
 function renderAll() {
     renderSidebar();
     renderStats();
@@ -562,6 +584,8 @@ function renderAll() {
 function renderSidebar() {
     document.getElementById("sidebar-streak-count").innerText = state.streak;
     document.getElementById("sidebar-display-date").innerText = formatDateDisplay(state.currentDate);
+    // Display today's date prominently in the header
+    document.getElementById("dashboard-date-display").innerText = formatDateDisplay(state.currentDate);
 }
 
 function renderStats() {
@@ -602,6 +626,7 @@ function renderDashboardTasks() {
     
     let html = "";
     todayTasks.forEach(task => {
+        const catClass = getCategoryClass(task.category);
         html += `
             <div class="task-item ${task.completed ? 'completed' : ''}" data-id="${task.id}">
                 <div class="task-left">
@@ -611,10 +636,11 @@ function renderDashboardTasks() {
                     <div class="task-details">
                         <span class="task-title">${task.name}</span>
                         <div class="task-meta">
-                            <span class="category-dot category-${task.category}"></span>
+                            <span class="category-dot category-${catClass}"></span>
                             <span>${task.category}</span>
+                            ${task.time_slot ? `<span>•</span> <span class="badge badge-time"><i class="fa-regular fa-clock"></i> ${task.time_slot}</span>` : ''}
                             <span>•</span>
-                            <span><i class="fa-regular fa-clock"></i> ${task.duration} mins</span>
+                            <span>${task.duration} mins</span>
                             ${task.is_spontaneous ? '<span>•</span> <span class="badge badge-success btn-sm" style="font-size:0.55rem; padding: 1px 4px;">Spontaneous</span>' : ''}
                         </div>
                     </div>
@@ -643,6 +669,7 @@ function renderTasksTab() {
     document.getElementById("tasks-today-badge").innerText = `${todayTasks.length} tasks`;
     document.getElementById("tasks-tomorrow-badge").innerText = `${tomorrowTasks.length} tasks`;
     
+    // Today list
     if (todayTasks.length === 0) {
         todayList.innerHTML = `
             <div class="empty-state" style="padding: 1.5rem 1rem;">
@@ -653,6 +680,7 @@ function renderTasksTab() {
     } else {
         let html = "";
         todayTasks.forEach(task => {
+            const catClass = getCategoryClass(task.category);
             html += `
                 <div class="task-item ${task.completed ? 'completed' : ''}">
                     <div class="task-left">
@@ -662,8 +690,9 @@ function renderTasksTab() {
                         <div class="task-details">
                             <span class="task-title">${task.name}</span>
                             <div class="task-meta">
-                                <span class="category-dot category-${task.category}"></span>
+                                <span class="category-dot category-${catClass}"></span>
                                 <span>${task.category}</span>
+                                ${task.time_slot ? `<span>•</span> <span class="badge badge-time" style="padding: 2px 6px;"><i class="fa-regular fa-clock"></i> ${task.time_slot}</span>` : ''}
                                 <span>•</span>
                                 <span>${task.duration}m</span>
                             </div>
@@ -680,6 +709,7 @@ function renderTasksTab() {
         todayList.innerHTML = html;
     }
     
+    // Tomorrow list
     if (tomorrowTasks.length === 0) {
         tomorrowList.innerHTML = `
             <div class="empty-state" style="padding: 1.5rem 1rem;">
@@ -690,6 +720,7 @@ function renderTasksTab() {
     } else {
         let html = "";
         tomorrowTasks.forEach(task => {
+            const catClass = getCategoryClass(task.category);
             html += `
                 <div class="task-item">
                     <div class="task-left">
@@ -699,8 +730,9 @@ function renderTasksTab() {
                         <div class="task-details">
                             <span class="task-title">${task.name}</span>
                             <div class="task-meta">
-                                <span class="category-dot category-${task.category}"></span>
+                                <span class="category-dot category-${catClass}"></span>
                                 <span>${task.category}</span>
+                                ${task.time_slot ? `<span>•</span> <span class="badge badge-time" style="padding: 2px 6px;"><i class="fa-regular fa-clock"></i> ${task.time_slot}</span>` : ''}
                                 <span>•</span>
                                 <span>${task.duration}m</span>
                             </div>
@@ -821,15 +853,18 @@ function renderHistory() {
                         ${dayTasks.length > 0 ? `
                             <div class="timeline-tasks-list">
                                 <span class="timeline-tasks-title">Tasks Logged:</span>
-                                ${dayTasks.map(t => `
-                                    <div class="timeline-task-item">
-                                        <div class="timeline-task-left">
-                                            <i class="fa-solid ${t.completed ? 'fa-circle-check text-green' : 'fa-circle text-dark'}"></i>
-                                            <span class="timeline-task-name ${t.completed ? 'line-through' : ''}">${t.name}</span>
+                                ${dayTasks.map(t => {
+                                    const catClass = getCategoryClass(t.category);
+                                    return `
+                                        <div class="timeline-task-item">
+                                            <div class="timeline-task-left">
+                                                <i class="fa-solid ${t.completed ? 'fa-circle-check text-green' : 'fa-circle text-dark'}"></i>
+                                                <span class="timeline-task-name ${t.completed ? 'line-through' : ''}">${t.name}</span>
+                                            </div>
+                                            <span class="timeline-task-tag">${t.category} ${t.time_slot ? `(${t.time_slot})` : ''} (${t.duration}m)</span>
                                         </div>
-                                        <span class="timeline-task-tag">${t.category} (${t.duration}m)</span>
-                                    </div>
-                                `).join('')}
+                                    `;
+                                }).join('')}
                             </div>
                         ` : '<span class="timeline-tasks-title" style="color:var(--text-dark)">No scheduled tasks logged.</span>'}
                     </div>
@@ -1019,6 +1054,7 @@ function renderCharts() {
         }
     });
     
+    // Build category totals, filter out empty elements to make legend look clean
     const categoryTotals = CATEGORIES.map(c => {
         const totalMins = state.tasks
             .filter(t => t.category === c && t.completed)
@@ -1028,7 +1064,13 @@ function renderCharts() {
     
     if (distChartInstance) distChartInstance.destroy();
     
-    const colors = ['#8b5cf6', '#06b6d4', '#ec4899', '#f59e0b', '#10b981', '#64748b'];
+    // Dynamic colors
+    const colors = [
+        '#f59e0b', '#ef4444', '#3b82f6', '#10b981', '#ec4899', 
+        '#8b5cf6', '#06b6d4', '#14b8a6', '#eab308', '#84cc16', 
+        '#a855f7', '#f43f5e', '#0ea5e9', '#64748b'
+    ];
+    
     const hasData = categoryTotals.some(val => val > 0);
     
     distChartInstance = new Chart(distCtx, {
@@ -1036,8 +1078,8 @@ function renderCharts() {
         data: {
             labels: hasData ? CATEGORIES : CATEGORIES.map(c => `${c} (No log)`),
             datasets: [{
-                data: hasData ? categoryTotals : [1, 1, 1, 1, 1, 1],
-                backgroundColor: colors,
+                data: hasData ? categoryTotals : Array(CATEGORIES.length).fill(1),
+                backgroundColor: colors.slice(0, CATEGORIES.length),
                 borderWidth: 2,
                 borderColor: '#0f1222'
             }]
@@ -1046,7 +1088,15 @@ function renderCharts() {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom', labels: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', size: 10 }, padding: 15, boxWidth: 10 } },
+                legend: { 
+                    position: 'right', 
+                    labels: { 
+                        color: '#94a3b8', 
+                        font: { family: 'Plus Jakarta Sans', size: 9 }, 
+                        boxWidth: 8,
+                        padding: 8
+                    } 
+                },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -1057,7 +1107,7 @@ function renderCharts() {
                     }
                 }
             },
-            cutout: '65%'
+            cutout: '60%'
         }
     });
 }
@@ -1108,7 +1158,6 @@ function toggleReflectionModal(show = true) {
 // --- EVENT HANDLERS & INITIALIZATION ---
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Initialize Database config if credentials exist
     initSupabase();
     
     // Auth Tab Selectors
@@ -1128,7 +1177,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("auth-subtitle").innerText = "Create an account for cloud backup.";
     });
     
-    // Database credentials setup
+    // Database credentials setup (Fallback)
     document.getElementById("form-db-setup").addEventListener("submit", (e) => {
         e.preventDefault();
         const url = document.getElementById("db-url").value.trim();
@@ -1172,7 +1221,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (error) {
             showToast("Registration failed: " + error.message, "warning");
         } else {
-            showToast("Account created! Check your email if verification is required, or try logging in.");
+            showToast("Account created! You can now log in.");
             document.getElementById("tab-btn-login").click();
         }
     });
@@ -1200,7 +1249,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 history: ["History Log", "Review reflections and completed schedules"]
             };
             document.getElementById("current-page-title").innerText = titles[tabName][0];
-            document.getElementById("current-page-subtitle").innerText = titles[tabName][1];
             
             if (tabName === "analytics") {
                 setTimeout(renderCharts, 100);
@@ -1217,9 +1265,10 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         const name = document.getElementById("spontaneous-task-name").value;
         const category = document.getElementById("spontaneous-task-category").value;
+        const timeSlot = document.getElementById("spontaneous-task-slot").value;
         const duration = document.getElementById("spontaneous-task-duration").value;
         
-        addSpontaneousTask(name, category, duration);
+        addSpontaneousTask(name, category, duration, timeSlot);
         document.getElementById("form-spontaneous-task").reset();
     });
     
@@ -1228,11 +1277,15 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         const name = document.getElementById("plan-task-name").value;
         const category = document.getElementById("plan-task-category").value;
+        const timeSlot = document.getElementById("plan-task-slot").value;
         const duration = document.getElementById("plan-task-duration").value;
         const target = document.querySelector('input[name="plan-task-target"]:checked').value;
         
-        addTask(name, category, duration, target);
+        addTask(name, category, duration, target, timeSlot);
+        
+        // Reset name, slot, duration
         document.getElementById("plan-task-name").value = "";
+        document.getElementById("plan-task-slot").value = "";
         document.getElementById("plan-task-duration").value = "";
     });
     
@@ -1306,7 +1359,6 @@ document.addEventListener("DOMContentLoaded", () => {
         debugSimulateNextDay();
     });
     
-    // Bind globals for onclick triggers in render html
     window.toggleTask = toggleTask;
     window.deleteTask = deleteTask;
 });

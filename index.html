@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zenith Study Tracker | Multi-User Cloud Sync</title>
+    <title>Zenith Study Tracker | GATE-CSE Space</title>
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,7 +26,7 @@
     </div>
 
     <!-- ==========================================
-         1. DATABASE CONFIGURATION SCREEN
+         1. DATABASE CONFIGURATION SCREEN (Fallback Only)
          ========================================== -->
     <div class="auth-wrapper" id="screen-db-setup" style="display: none;">
         <div class="auth-card">
@@ -46,10 +46,6 @@
                     <label for="db-key">Supabase API Anon Key</label>
                     <input type="text" id="db-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." required>
                 </div>
-                <div class="alert-info-box" style="margin: 0.5rem 0;">
-                    <i class="fa-solid fa-circle-info text-cyan"></i>
-                    <span>Find these credentials under Project Settings > API in your Supabase dashboard.</span>
-                </div>
                 <button type="submit" class="btn btn-primary btn-block">
                     <i class="fa-solid fa-link"></i> Connect Database
                 </button>
@@ -66,7 +62,7 @@
                 <div class="brand-icon">
                     <i class="fa-solid fa-compass-drafting"></i>
                 </div>
-                <h2>Zenith Tracker</h2>
+                <h2>Zenith CSE Tracker</h2>
                 <p id="auth-subtitle">Log in to sync your custom study space.</p>
             </div>
 
@@ -106,7 +102,7 @@
                 </button>
             </form>
 
-            <div class="auth-footer">
+            <div class="auth-footer" id="db-config-reset-wrapper" style="display: none;">
                 <button class="btn-link" id="btn-reset-db-config" type="button">
                     <i class="fa-solid fa-rotate"></i> Change Database Connection
                 </button>
@@ -173,7 +169,10 @@
             <header class="top-bar">
                 <div class="page-title-section">
                     <h2 id="current-page-title">Dashboard Overview</h2>
-                    <p class="subtitle" id="current-page-subtitle">Track your focus and consistency daily</p>
+                    <div class="date-header-badge">
+                        <i class="fa-regular fa-calendar-days"></i>
+                        <span id="dashboard-date-display">Friday, June 19, 2026</span>
+                    </div>
                 </div>
                 <div class="header-actions">
                     <!-- Date Rollover Tool (Simulated Debugger / Manual Rollover) -->
@@ -265,22 +264,41 @@
                             <p class="description">Did some study work off-schedule? Log it here instantly as completed!</p>
                             <form id="form-spontaneous-task" class="quick-form">
                                 <div class="form-group">
-                                    <input type="text" id="spontaneous-task-name" placeholder="What did you study? (e.g. Chemistry NCERT)" required>
+                                    <input type="text" id="spontaneous-task-name" placeholder="What did you study? (e.g. Read CN chapter 2)" required>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-12">
+                                        <select id="spontaneous-task-category" required>
+                                            <option value="" disabled selected>Select Subject</option>
+                                            <!-- GATE-CSE Specific Subjects -->
+                                            <optgroup label="GATE-CSE Core">
+                                                <option value="Engineering Mathematics">Engineering Mathematics</option>
+                                                <option value="Digital Logics">Digital Logics</option>
+                                                <option value="Computer Organization and Architecture">Computer Organization and Architecture (COA)</option>
+                                                <option value="Programming DSA">Programming & DSA</option>
+                                                <option value="Compiler Design">Compiler Design</option>
+                                                <option value="Operating Systems">Operating Systems</option>
+                                                <option value="Databases">Databases (DBMS)</option>
+                                                <option value="Computer Networks">Computer Networks (CN)</option>
+                                            </optgroup>
+                                            <!-- General Prep Subjects -->
+                                            <optgroup label="General Preparation">
+                                                <option value="Aptitude">Aptitude (Gate)</option>
+                                                <option value="English">English</option>
+                                                <option value="Reasoning">Reasoning</option>
+                                                <option value="General Mathematics">General Mathematics</option>
+                                                <option value="PYQs">PYQs (Previous Years)</option>
+                                                <option value="Other">Other / General</option>
+                                            </optgroup>
+                                        </select>
+                                    </div>
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group col-6">
-                                        <select id="spontaneous-task-category" required>
-                                            <option value="" disabled selected>Category</option>
-                                            <option value="Coding">Coding</option>
-                                            <option value="Math">Math</option>
-                                            <option value="Science">Science</option>
-                                            <option value="Humanities">Humanities</option>
-                                            <option value="Languages">Languages</option>
-                                            <option value="Other">Other</option>
-                                        </select>
+                                        <input type="text" id="spontaneous-task-slot" placeholder="Time Slot (e.g. 1-2PM)">
                                     </div>
                                     <div class="form-group col-6">
-                                        <input type="number" id="spontaneous-task-duration" placeholder="Mins (e.g. 45)" min="5" max="480" required>
+                                        <input type="number" id="spontaneous-task-duration" placeholder="Duration (mins)" min="5" max="480" required>
                                     </div>
                                 </div>
                                 <button type="submit" class="btn btn-primary btn-block">
@@ -330,23 +348,44 @@
                                 <form id="form-plan-task" class="detail-form">
                                     <div class="form-group">
                                         <label for="plan-task-name">Task Name / Topic</label>
-                                        <input type="text" id="plan-task-name" placeholder="e.g. Solve 20 Integration Problems" required>
+                                        <input type="text" id="plan-task-name" placeholder="e.g. Practice 30 SQL Queries" required>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group col-12">
+                                            <label for="plan-task-category">Subject / Category</label>
+                                            <select id="plan-task-category" required>
+                                                <option value="" disabled selected>Select Subject</option>
+                                                <!-- GATE-CSE Specific Subjects -->
+                                                <optgroup label="GATE-CSE Core">
+                                                    <option value="Engineering Mathematics">Engineering Mathematics</option>
+                                                    <option value="Digital Logics">Digital Logics</option>
+                                                    <option value="Computer Organization and Architecture">Computer Organization and Architecture (COA)</option>
+                                                    <option value="Programming DSA" selected>Programming & DSA</option>
+                                                    <option value="Compiler Design">Compiler Design</option>
+                                                    <option value="Operating Systems">Operating Systems</option>
+                                                    <option value="Databases">Databases (DBMS)</option>
+                                                    <option value="Computer Networks">Computer Networks (CN)</option>
+                                                </optgroup>
+                                                <!-- General Prep Subjects -->
+                                                <optgroup label="General Preparation">
+                                                    <option value="Aptitude">Aptitude (Gate)</option>
+                                                    <option value="English">English</option>
+                                                    <option value="Reasoning">Reasoning</option>
+                                                    <option value="General Mathematics">General Mathematics</option>
+                                                    <option value="PYQs">PYQs (Previous Years)</option>
+                                                    <option value="Other">Other / General</option>
+                                                </optgroup>
+                                            </select>
+                                        </div>
                                     </div>
                                     <div class="form-row">
                                         <div class="form-group col-6">
-                                            <label for="plan-task-category">Category</label>
-                                            <select id="plan-task-category" required>
-                                                <option value="Coding">Coding</option>
-                                                <option value="Math" selected>Math</option>
-                                                <option value="Science">Science</option>
-                                                <option value="Humanities">Humanities</option>
-                                                <option value="Languages">Languages</option>
-                                                <option value="Other">Other</option>
-                                            </select>
+                                            <label for="plan-task-slot">Time Slot (Optional)</label>
+                                            <input type="text" id="plan-task-slot" placeholder="e.g. 2-4 PM">
                                         </div>
                                         <div class="form-group col-6">
                                             <label for="plan-task-duration">Duration (Minutes)</label>
-                                            <input type="number" id="plan-task-duration" placeholder="e.g. 60" min="5" max="480" required>
+                                            <input type="number" id="plan-task-duration" placeholder="e.g. 120" min="5" max="480" required>
                                         </div>
                                     </div>
                                     <div class="form-group">
@@ -450,11 +489,19 @@
                             <!-- Category Filter -->
                             <select id="history-filter-category" class="select-sm">
                                 <option value="all">All Subjects</option>
-                                <option value="Coding">Coding</option>
-                                <option value="Math">Math</option>
-                                <option value="Science">Science</option>
-                                <option value="Humanities">Humanities</option>
-                                <option value="Languages">Languages</option>
+                                <option value="Engineering Mathematics">Engineering Mathematics</option>
+                                <option value="Digital Logics">Digital Logics</option>
+                                <option value="Computer Organization and Architecture">Computer Organization & Architecture</option>
+                                <option value="Programming DSA">Programming & DSA</option>
+                                <option value="Compiler Design">Compiler Design</option>
+                                <option value="Operating Systems">Operating Systems</option>
+                                <option value="Databases">DBMS</option>
+                                <option value="Computer Networks">Computer Networks</option>
+                                <option value="Aptitude">Aptitude</option>
+                                <option value="English">English</option>
+                                <option value="Reasoning">Reasoning</option>
+                                <option value="General Mathematics">General Mathematics</option>
+                                <option value="PYQs">PYQs</option>
                                 <option value="Other">Other</option>
                             </select>
                         </div>
