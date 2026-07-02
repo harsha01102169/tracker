@@ -374,7 +374,7 @@ async function handleMissedDays(targetDate) {
         const tempTasks = state.tasks.filter(t => t.date === tempDate);
         const completedCount = tempTasks.filter(t => t.completed).length;
         
-        if (tempTasks.length > 0 && completedCount === 0) {
+        if (completedCount === 0) {
             state.streak = 0;
         }
         
@@ -561,9 +561,7 @@ async function finalizeDay(rating, mood, notes) {
         }
         state.lastCompletedDate = today;
     } else {
-        if (todayTasks.length > 0) {
-            state.streak = 0;
-        }
+        state.streak = 0;
     }
     
     state.reflections[today] = {
@@ -622,7 +620,7 @@ async function debugSimulateNextDay() {
     const todayTasks = state.tasks.filter(t => t.date === today);
     const completedCount = todayTasks.filter(t => t.completed).length;
     
-    if (todayTasks.length > 0 && completedCount === 0) {
+    if (completedCount === 0) {
         state.streak = 0;
     }
     
@@ -969,7 +967,7 @@ function renderHeatmap() {
     const today = state.currentDate;
     if (!today) return;
     
-    const totalDays = 133;
+    const totalDays = 371; // 53 weeks * 7 days for a complete full-year view
     const cells = [];
     
     for (let i = totalDays - 1; i >= 0; i--) {
@@ -1208,20 +1206,37 @@ function renderCharts() {
     const today = state.currentDate;
     if (!today) return;
     
-    const last7Days = [];
-    for (let i = 6; i >= 0; i--) {
-        last7Days.push(addDays(today, -i));
+    // Calculate total days from June 15, 2026 to state.currentDate
+    const startDateStr = "2026-06-15";
+    const start = startDateStr < today ? startDateStr : addDays(today, -6);
+    
+    const d1 = new Date(start + "T00:00:00");
+    const d2 = new Date(today + "T00:00:00");
+    const diffTime = d2.getTime() - d1.getTime();
+    const rangeDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
+    
+    const lastNDays = [];
+    for (let i = rangeDays - 1; i >= 0; i--) {
+        lastNDays.push(addDays(today, -i));
     }
     
-    const labels = last7Days.map(d => formatDateShort(d));
-    const completionRates = last7Days.map(d => {
+    // Dynamically adjust trendChartWrapper width to allow horizontal scrolling
+    const trendWrapper = document.getElementById("trendChartWrapper");
+    if (trendWrapper) {
+        const parentWidth = trendWrapper.parentElement.clientWidth;
+        const calcWidth = rangeDays * 55; // 55px per day for clear labels spacing
+        trendWrapper.style.width = Math.max(parentWidth, calcWidth) + "px";
+    }
+    
+    const labels = lastNDays.map(d => formatDateShort(d));
+    const completionRates = lastNDays.map(d => {
         const dayTasks = state.tasks.filter(t => t.date === d);
         if (dayTasks.length === 0) return 0;
         const comp = dayTasks.filter(t => t.completed).length;
         return Math.round((comp / dayTasks.length) * 100);
     });
     
-    const focusRatings = last7Days.map(d => {
+    const focusRatings = lastNDays.map(d => {
         const ref = state.reflections[d];
         return ref ? ref.focusRating * 20 : 0;
     });
@@ -1320,6 +1335,14 @@ function renderCharts() {
             cutout: '60%'
         }
     });
+    
+    // Auto-scroll the trend chart to today's date on the far right
+    setTimeout(() => {
+        const chartContainer = document.getElementById("trendChartWrapper")?.parentElement;
+        if (chartContainer) {
+            chartContainer.scrollLeft = chartContainer.scrollWidth;
+        }
+    }, 100);
 }
 
 function showToast(message, type = "success") {
@@ -1577,14 +1600,43 @@ function initializeApp() {
     document.getElementById("history-filter-category").addEventListener("change", () => {
         renderHistory();
     });
-    
-    // Time-travel simulated next day
-    document.getElementById("btn-debug-tomorrow").addEventListener("click", () => {
-        debugSimulateNextDay();
-    });
-    
     window.toggleTask = toggleTask;
     window.deleteTask = deleteTask;
+    
+    // Start midnight rollover checker
+    startMidnightCheck();
+}
+
+let isAutoFinalizing = false;
+
+function startMidnightCheck() {
+    logProgress("Starting midnight rollover check timer...");
+    setInterval(async () => {
+        if (!currentUser || !state.currentDate || isAutoFinalizing) return;
+        
+        const actualDate = getSystemDate(state.systemOffsetDays);
+        if (actualDate > state.currentDate) {
+            isAutoFinalizing = true;
+            logProgress("Midnight rollover detected! Auto-finalizing day: " + state.currentDate);
+            showToast("Midnight rollover! Auto-finalizing study day...", "warning");
+            
+            // Close reflection modal if open
+            toggleReflectionModal(false);
+            
+            try {
+                // Auto finalize the day
+                await finalizeDay(
+                    0, 
+                    "neutral", 
+                    "Auto-finalized: Day rolled over at midnight."
+                );
+            } catch (err) {
+                console.error("Auto-finalization failed:", err);
+            } finally {
+                isAutoFinalizing = false;
+            }
+        }
+    }, 30000); // Check every 30 seconds
 }
 
 if (document.readyState === "loading") {

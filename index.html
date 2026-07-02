@@ -213,11 +213,6 @@
                     </div>
                 </div>
                 <div class="header-actions">
-                    <!-- Date Rollover Tool (Simulated Debugger / Manual Rollover) -->
-                    <button class="btn btn-secondary btn-sm" id="btn-debug-tomorrow" title="Simulate passing of 1 day">
-                        <i class="fa-solid fa-clock-rotate-left"></i>
-                        <span>Simulate Next Day</span>
-                    </button>
                     <button class="btn btn-primary" id="btn-trigger-rollover" title="Complete today's review and move to tomorrow's tasks">
                         <i class="fa-solid fa-circle-check"></i>
                         <span>Finalize Day</span>
@@ -498,9 +493,11 @@
                         <div class="card-header">
                             <h3><i class="fa-solid fa-chart-area text-cyan"></i> Study Completion & Consistency Trends</h3>
                         </div>
-                        <div class="card-body">
-                            <div class="chart-container">
-                                <canvas id="trendChart"></canvas>
+                        <div class="card-body" style="padding: 1.5rem 0.5rem; overflow-x: hidden;">
+                            <div class="chart-container" style="overflow-x: auto; width: 100%; display: block; position: relative;">
+                                <div id="trendChartWrapper" style="height: 280px; min-width: 100%;">
+                                    <canvas id="trendChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     </div>
