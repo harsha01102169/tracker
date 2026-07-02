@@ -3,6 +3,7 @@
    ========================================================================== */
 
 // --- GLOBAL DEBUG LOGGING ---
+console.log("Zenith Study Tracker loaded - v1.1.1 (Auto-Finalize, Hybrid Charts, Auto-Streak Correction)");
 window.onerror = function(message, source, lineno, colno, error) {
     alert("Runtime Error: " + message + "\nLine: " + lineno + "\nSource: " + source);
     return false;
@@ -314,6 +315,12 @@ async function loadUserData() {
         state.lastCompletedDate = stats.last_completed_date || "";
         state.currentDate = stats.current_date || getSystemDate(0);
         
+        const dateInput = document.getElementById("plan-task-date");
+        if (dateInput) {
+            dateInput.value = state.currentDate;
+            dateInput.min = state.currentDate;
+        }
+        
         // --- DATE ALIGNMENT RESET SWITCH ---
         const currentActual = getSystemDate(0);
         if (state.currentDate > currentActual) {
@@ -470,9 +477,7 @@ async function handleMissedDays(targetDate) {
 
 // --- CLOUD CRUD OPERATIONS ---
 
-// Add planned task
-async function addTask(name, category, duration, target, timeSlot) {
-    const targetDate = target === "tomorrow" ? addDays(state.currentDate, 1) : state.currentDate;
+async function addTask(name, category, duration, targetDate, timeSlot) {
     const id = generateId();
     
     const newTask = {
@@ -922,13 +927,15 @@ function renderTasksTab() {
     const tomorrowList = document.getElementById("tasks-tomorrow-list");
     
     const today = state.currentDate;
-    const tomorrow = addDays(today, 1);
     
     const todayTasks = state.tasks.filter(t => t.date === today);
-    const tomorrowTasks = state.tasks.filter(t => t.date === tomorrow);
+    // Upcoming tasks: anything where date > today
+    const upcomingTasks = state.tasks
+        .filter(t => t.date > today)
+        .sort((a, b) => a.date.localeCompare(b.date));
     
     document.getElementById("tasks-today-badge").innerText = `${todayTasks.length} tasks`;
-    document.getElementById("tasks-tomorrow-badge").innerText = `${tomorrowTasks.length} tasks`;
+    document.getElementById("tasks-tomorrow-badge").innerText = `${upcomingTasks.length} tasks`;
     
     if (todayTasks.length === 0) {
         todayList.innerHTML = `
@@ -969,19 +976,28 @@ function renderTasksTab() {
         todayList.innerHTML = html;
     }
     
-    if (tomorrowTasks.length === 0) {
+    if (upcomingTasks.length === 0) {
         tomorrowList.innerHTML = `
             <div class="empty-state" style="padding: 1.5rem 1rem;">
-                <i class="fa-solid fa-moon" style="font-size: 1.8rem;"></i>
-                <p style="font-size: 0.8rem;">No pre-planned tasks for tomorrow.</p>
+                <i class="fa-solid fa-calendar-days" style="font-size: 1.8rem;"></i>
+                <p style="font-size: 0.8rem;">No upcoming tasks planned.</p>
             </div>
         `;
     } else {
         let html = "";
-        tomorrowTasks.forEach(task => {
+        let currentDateHeader = "";
+        upcomingTasks.forEach(task => {
+            if (task.date !== currentDateHeader) {
+                currentDateHeader = task.date;
+                html += `
+                    <div class="upcoming-date-header" style="font-size: 0.72rem; font-weight: 700; color: #8b5cf6; margin: 16px 0 8px 4px; display: flex; align-items: center; gap: 6px; letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 4px;">
+                        <i class="fa-regular fa-calendar-check"></i> ${formatDateDisplay(currentDateHeader)}
+                    </div>
+                `;
+            }
             const catClass = getCategoryClass(task.category);
             html += `
-                <div class="task-item">
+                <div class="task-item" style="margin-bottom: 6px;">
                     <div class="task-left">
                         <div class="checkbox-custom" style="opacity: 0.5; pointer-events: none;">
                             <i class="fa-solid fa-check"></i>
@@ -1613,13 +1629,14 @@ function initializeApp() {
         const planStart = document.getElementById("plan-task-start").value;
         const planEnd = document.getElementById("plan-task-end").value;
         const duration = document.getElementById("plan-task-duration").value;
-        const target = document.querySelector('input[name="plan-task-target"]:checked').value;
+        const targetDate = document.getElementById("plan-task-date").value;
         const timeSlot = getTimeSlotRangeString(planStart, planEnd);
         
-        addTask(name, category, duration, target, timeSlot);
+        addTask(name, category, duration, targetDate, timeSlot);
         
         document.getElementById("plan-task-name").value = "";
         resetTimeInputs('plan');
+        document.getElementById("plan-task-date").value = state.currentDate;
     });
     
     // Rollover modal controls

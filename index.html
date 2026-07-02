@@ -432,21 +432,9 @@
                                             <span class="duration-badge" id="plan-task-duration-display">60 mins</span>
                                             <input type="hidden" id="plan-task-duration" value="60">
                                         </div>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Target Date</label>
-                                        <div class="radio-group">
-                                            <label class="radio-label">
-                                                <input type="radio" name="plan-task-target" value="today" checked>
-                                                <span class="custom-radio"></span>
-                                                Today
-                                            </label>
-                                            <label class="radio-label">
-                                                <input type="radio" name="plan-task-target" value="tomorrow">
-                                                <span class="custom-radio"></span>
-                                                Tomorrow (Nightly prep)
-                                            </label>
-                                        </div>
+                                               <div class="form-group">
+                                        <label for="plan-task-date">Target Date</label>
+                                        <input type="date" id="plan-task-date" required>
                                     </div>
                                     <button type="submit" class="btn btn-primary btn-block">
                                         <i class="fa-solid fa-plus-circle"></i> Add to Schedule
@@ -455,7 +443,7 @@
                             </div>
                         </div>
                     </div>
-
+ 
                     <!-- Today's Tasks & Tomorrow's Pre-Plan Columns -->
                     <div class="planning-column">
                         <div class="content-card h-50 mb-3">
@@ -469,14 +457,13 @@
                                 </div>
                             </div>
                         </div>
-
+ 
                         <div class="content-card h-50">
                             <div class="card-header">
-                                <h3><i class="fa-solid fa-moon text-purple"></i> Tomorrow's Pre-Plan</h3>
+                                <h3><i class="fa-solid fa-calendar-days text-purple"></i> Upcoming Schedule</h3>
                                 <span class="badge badge-purple" id="tasks-tomorrow-badge">0 tasks</span>
                             </div>
                             <div class="card-body">
-                                <p class="column-tip">Tip: Fill this at night. When you click <strong>Finalize Day</strong>, these will automatically move to your active list!</p>
                                 <div class="task-list-scrollable" id="tasks-tomorrow-list">
                                     <!-- Rendered dynamically -->
                                 </div>
