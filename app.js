@@ -198,6 +198,41 @@ function showLoadingState() {
     document.getElementById("history-timeline-container").innerHTML = spinner;
 }
 
+// --- STREAK DYNAMIC CALCULATION ---
+function calculateCurrentStreak() {
+    const completedDates = [...new Set(
+        state.tasks
+            .filter(t => t.completed && t.date)
+            .map(t => t.date)
+    )].sort().reverse(); // Sort descending: latest dates first
+    
+    if (completedDates.length === 0) return 0;
+    
+    const today = state.currentDate;
+    const yesterday = addDays(today, -1);
+    
+    // Streak is active only if they completed a task today or yesterday
+    const latestDate = completedDates[0];
+    if (latestDate !== today && latestDate !== yesterday) {
+        return 0;
+    }
+    
+    let streakCount = 1;
+    let checkDate = latestDate;
+    
+    for (let i = 1; i < completedDates.length; i++) {
+        const expectedPrevDate = addDays(checkDate, -1);
+        if (completedDates[i] === expectedPrevDate) {
+            streakCount++;
+            checkDate = completedDates[i];
+        } else {
+            break; // Gap detected, stop counting
+        }
+    }
+    
+    return streakCount;
+}
+
 // --- DATABASE FETCH OPERATIONS ---
 async function loadUserData() {
     if (!currentUser) return;
@@ -311,6 +346,20 @@ async function loadUserData() {
         }
         logProgress("Tasks fetched: " + (tasks ? tasks.length : 0));
         state.tasks = tasks || [];
+        
+        // --- STREAK AUTO-CORRECTION ---
+        const calculatedStreak = calculateCurrentStreak();
+        if (calculatedStreak !== state.streak) {
+            logProgress("Streak mismatch! DB has: " + state.streak + ", calculated: " + calculatedStreak + ". Updating DB...");
+            state.streak = calculatedStreak;
+            // Sync the corrected streak to DB (non-blocking)
+            supabaseClient.from('user_stats').update({
+                streak: state.streak
+            }).eq('user_id', currentUser.id).then(({ error }) => {
+                if (error) console.error("Failed to sync corrected streak to DB:", error);
+                else logProgress("Corrected streak synced successfully.");
+            });
+        }
         
         logProgress("Step 3: Fetching reflections...");
         const { data: reflections, error: refError } = await promiseWithTimeout(
@@ -1206,19 +1255,56 @@ function renderCharts() {
     const today = state.currentDate;
     if (!today) return;
     
-    // Calculate total days from June 15, 2026 to state.currentDate
-    const startDateStr = "2026-06-15";
-    const start = startDateStr < today ? startDateStr : addDays(today, -6);
-    
-    const d1 = new Date(start + "T00:00:00");
-    const d2 = new Date(today + "T00:00:00");
-    const diffTime = d2.getTime() - d1.getTime();
-    const rangeDays = Math.max(1, Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1);
-    
+    const rangeType = document.getElementById("analytics-time-range")?.value || "7";
     const lastNDays = [];
-    for (let i = rangeDays - 1; i >= 0; i--) {
-        lastNDays.push(addDays(today, -i));
+    
+    // Toggle custom date picker visibility
+    const customDatesContainer = document.getElementById("analytics-custom-dates");
+    if (customDatesContainer) {
+        customDatesContainer.style.display = rangeType === "custom" ? "flex" : "none";
     }
+    
+    if (rangeType === "custom") {
+        let startVal = document.getElementById("analytics-start-date")?.value;
+        let endVal = document.getElementById("analytics-end-date")?.value;
+        
+        if (startVal && endVal) {
+            let temp = startVal;
+            const end = endVal;
+            while (temp <= end) {
+                lastNDays.push(temp);
+                temp = addDays(temp, 1);
+            }
+        } else {
+            // Default to last 30 days if inputs are not filled yet
+            const startDateDefault = addDays(today, -29);
+            const startInput = document.getElementById("analytics-start-date");
+            const endInput = document.getElementById("analytics-end-date");
+            if (startInput) startInput.value = startDateDefault;
+            if (endInput) endInput.value = today;
+            
+            let temp = startDateDefault;
+            while (temp <= today) {
+                lastNDays.push(temp);
+                temp = addDays(temp, 1);
+            }
+        }
+    } else if (rangeType === "all") {
+        const startDateStr = "2026-06-15";
+        const start = startDateStr < today ? startDateStr : addDays(today, -6);
+        let temp = start;
+        while (temp <= today) {
+            lastNDays.push(temp);
+            temp = addDays(temp, 1);
+        }
+    } else {
+        const rangeDays = parseInt(rangeType);
+        for (let i = rangeDays - 1; i >= 0; i--) {
+            lastNDays.push(addDays(today, -i));
+        }
+    }
+    
+    const rangeDays = lastNDays.length;
     
     // Dynamically adjust trendChartWrapper width to allow horizontal scrolling
     const trendWrapper = document.getElementById("trendChartWrapper");
@@ -1599,6 +1685,19 @@ function initializeApp() {
     // History filter change
     document.getElementById("history-filter-category").addEventListener("change", () => {
         renderHistory();
+    });
+    
+    // Analytics time range selector bindings
+    document.getElementById("analytics-time-range")?.addEventListener("change", () => {
+        renderCharts();
+    });
+    
+    document.getElementById("analytics-start-date")?.addEventListener("change", () => {
+        renderCharts();
+    });
+    
+    document.getElementById("analytics-end-date")?.addEventListener("change", () => {
+        renderCharts();
     });
     window.toggleTask = toggleTask;
     window.deleteTask = deleteTask;

@@ -490,8 +490,23 @@
             <section class="tab-content" id="tab-analytics">
                 <div class="analytics-grid">
                     <div class="content-card col-8">
-                        <div class="card-header">
+                        <div class="card-header" style="flex-wrap: wrap; gap: 10px;">
                             <h3><i class="fa-solid fa-chart-area text-cyan"></i> Study Completion & Consistency Trends</h3>
+                            <div class="filters" style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <select id="analytics-time-range" class="select-sm">
+                                    <option value="7" selected>7 Days</option>
+                                    <option value="14">14 Days</option>
+                                    <option value="30">Month</option>
+                                    <option value="90">3 Months</option>
+                                    <option value="all">June 15th - Live</option>
+                                    <option value="custom">Custom Range</option>
+                                </select>
+                                <div id="analytics-custom-dates" style="display: none; align-items: center; gap: 6px;">
+                                    <input type="date" id="analytics-start-date" class="select-sm" style="padding: 4px 8px; font-size: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); color: white;">
+                                    <span style="font-size: 0.75rem; color: var(--text-muted);">to</span>
+                                    <input type="date" id="analytics-end-date" class="select-sm" style="padding: 4px 8px; font-size: 0.75rem; background: rgba(0,0,0,0.2); border: 1px solid var(--border-glass); border-radius: var(--radius-sm); color: white;">
+                                </div>
+                            </div>
                         </div>
                         <div class="card-body" style="padding: 1.5rem 0.5rem; overflow-x: hidden;">
                             <div class="chart-container" style="overflow-x: auto; width: 100%; display: block; position: relative;">
